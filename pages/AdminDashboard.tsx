@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
-  Users, FileText, Calendar, LogOut, Plus, Search, Trash2, Edit2, Download, Briefcase, CheckCircle, XCircle, Clock, Loader2, Save, GripVertical, List, Languages, Image as ImageIcon, Smile, Filter, ChevronDown, Building2, Palette, Handshake, Link as LinkIcon
+  Users, FileText, Calendar, LogOut, Plus, Search, Trash2, Edit2, Download, Briefcase, CheckCircle, XCircle, Clock, Loader2, Save, GripVertical, List, Languages, Image as ImageIcon, Smile, Filter, ChevronDown, Building2, Palette, Handshake, Link as LinkIcon, Settings
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { 
@@ -9,7 +9,7 @@ import {
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '../firebaseConfig';
 import { useAuth } from '../context/AuthContext';
-import { ContactSubmission, DocumentItem, Project, Opportunity, FormQuestion, TeamMember, Department, PartnerItem } from '../types';
+import { ContactSubmission, DocumentItem, Project, Opportunity, FormQuestion, TeamMember, Department, PartnerItem, PartnerType } from '../types';
 // @ts-ignore - using importmap for xlsx
 import { utils, writeFile } from 'xlsx';
 
@@ -28,12 +28,14 @@ export const AdminDashboard: React.FC = () => {
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [partners, setPartners] = useState<PartnerItem[]>([]);
+  const [partnerTypes, setPartnerTypes] = useState<PartnerType[]>([]);
 
   // Drag and Drop State
   const [draggedDeptIndex, setDraggedDeptIndex] = useState<number | null>(null);
   const [draggedProjectIndex, setDraggedProjectIndex] = useState<number | null>(null);
   const [draggedDocIndex, setDraggedDocIndex] = useState<number | null>(null);
   const [draggedPartnerIndex, setDraggedPartnerIndex] = useState<number | null>(null);
+  const [draggedPartnerTypeIndex, setDraggedPartnerTypeIndex] = useState<number | null>(null);
 
   // Submission Filters
   const [submissionFilter, setSubmissionFilter] = useState<'all' | 'contact' | 'application'>('all');
@@ -43,8 +45,9 @@ export const AdminDashboard: React.FC = () => {
   const [teamFilterDept, setTeamFilterDept] = useState<string>('all');
   const [showDeptManager, setShowDeptManager] = useState(false);
 
-  // Partners Filter
-  const [partnerFilterType, setPartnerFilterType] = useState<string>('partners');
+  // Partners State
+  const [partnerFilterType, setPartnerFilterType] = useState<string>(''); // Default to first available type
+  const [showPartnerTypeManager, setShowPartnerTypeManager] = useState(false);
 
   // Form States
   const [isAddingProject, setIsAddingProject] = useState(false);
@@ -66,8 +69,12 @@ export const AdminDashboard: React.FC = () => {
   const [deptLang, setDeptLang] = useState<'uk' | 'en'>('uk');
 
   const [isAddingPartner, setIsAddingPartner] = useState(false);
-  const [newPartner, setNewPartner] = useState<Partial<PartnerItem>>({ type: 'partners', bgColor: '#ffffff', link: '#' });
+  const [newPartner, setNewPartner] = useState<Partial<PartnerItem>>({ bgColor: '#ffffff', link: '#' });
   const [partnerLang, setPartnerLang] = useState<'uk' | 'en'>('uk');
+
+  const [isAddingPartnerType, setIsAddingPartnerType] = useState(false);
+  const [newPartnerType, setNewPartnerType] = useState<Partial<PartnerType>>({ color: '#031B47' });
+  const [partnerTypeLang, setPartnerTypeLang] = useState<'uk' | 'en'>('uk');
 
   const [fileToUpload, setFileToUpload] = useState<File | null>(null);
 
@@ -140,6 +147,20 @@ export const AdminDashboard: React.FC = () => {
         setPartners(data);
       }, (error) => console.error("Partners listener error:", error));
 
+      const unsubPartnerTypes = onSnapshot(collection(db, "partner_types"), (snapshot) => {
+        const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as PartnerType));
+        data.sort((a,b) => {
+          const orderA = a.order !== undefined ? a.order : 999;
+          const orderB = b.order !== undefined ? b.order : 999;
+          return orderA - orderB;
+        });
+        setPartnerTypes(data);
+        // Set default filter if not set and data exists
+        if (data.length > 0) {
+           setPartnerFilterType(prev => prev || data[0].id);
+        }
+      }, (error) => console.error("Partner Types listener error:", error));
+
       setLoading(false);
 
       return () => {
@@ -150,6 +171,7 @@ export const AdminDashboard: React.FC = () => {
         unsubTeam();
         unsubDepts();
         unsubPartners();
+        unsubPartnerTypes();
       };
     } catch (e) {
       console.error("Setup listeners failed", e);
@@ -242,7 +264,25 @@ export const AdminDashboard: React.FC = () => {
     } catch (error: any) { handleFirebaseError(error, 'оновлення порядку документів'); }
   };
 
-  // 4. Partners (Filtered DnD)
+  // 4. Partner Types (DnD)
+  const handleDragStartPartnerType = (index: number) => setDraggedPartnerTypeIndex(index);
+  const handleDropPartnerType = async (dropIndex: number) => {
+    if (draggedPartnerTypeIndex === null || draggedPartnerTypeIndex === dropIndex) return;
+    const updated = [...partnerTypes];
+    const [draggedItem] = updated.splice(draggedPartnerTypeIndex, 1);
+    updated.splice(dropIndex, 0, draggedItem);
+    setPartnerTypes(updated);
+    setDraggedPartnerTypeIndex(null);
+    try {
+      const batch = writeBatch(db);
+      updated.forEach((item, index) => {
+        batch.update(doc(db, "partner_types", item.id), { order: index });
+      });
+      await batch.commit();
+    } catch (error: any) { handleFirebaseError(error, 'оновлення порядку типів партнерів'); }
+  };
+
+  // 5. Partners (Filtered DnD)
   const handleDragStartPartner = (index: number) => setDraggedPartnerIndex(index);
   const handleDropPartner = async (dropIndex: number) => {
     if (draggedPartnerIndex === null || draggedPartnerIndex === dropIndex) return;
@@ -254,16 +294,7 @@ export const AdminDashboard: React.FC = () => {
     const [draggedItem] = updatedFiltered.splice(draggedPartnerIndex, 1);
     updatedFiltered.splice(dropIndex, 0, draggedItem);
     
-    // Now we need to merge this back into the main list or just update IDs
-    // Easier: Just update 'order' for items in this specific type group
-    // Note: To allow global unique ordering, we might need a sophisticated approach.
-    // Simplest: We only update order for *these* items, but we need to know their relative global order?
-    // Alternative: Just give them a new order index based on their position in this sub-list + a base offset?
-    // Let's keep it simple: We just update the 'order' field for all items in this Type group to be consistent 0, 1, 2... 
-    // This works because frontend filters by type then sorts.
-    
-    // Update local state (visual only for now, fetch will fix sync)
-    // Construct new full list
+    // Update local state by merging
     const otherItems = partners.filter(p => p.type !== partnerFilterType);
     const newFullList = [...otherItems, ...updatedFiltered];
     setPartners(newFullList);
@@ -358,6 +389,38 @@ export const AdminDashboard: React.FC = () => {
     writeFile(workbook, fileName);
   };
 
+  // --- PARTNER TYPE LOGIC ---
+  const handleSavePartnerType = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newPartnerType.name) return;
+    setLoading(true);
+
+    try {
+       const typePayload = {
+          name: newPartnerType.name,
+          nameEn: newPartnerType.nameEn || newPartnerType.name,
+          description: newPartnerType.description || '',
+          descriptionEn: newPartnerType.descriptionEn || newPartnerType.description || '',
+          color: newPartnerType.color || '#031B47',
+          order: newPartnerType.id ? (newPartnerType.order !== undefined ? newPartnerType.order : 999) : partnerTypes.length
+       };
+
+       if (newPartnerType.id) {
+          await updateDoc(doc(db, "partner_types", newPartnerType.id), typePayload);
+       } else {
+          await addDoc(collection(db, "partner_types"), typePayload);
+       }
+
+       setIsAddingPartnerType(false);
+       setNewPartnerType({ color: '#031B47' });
+
+    } catch (error: any) {
+       handleFirebaseError(error, 'збереження типу партнера');
+    } finally {
+       setLoading(false);
+    }
+  };
+
   // --- PARTNER LOGIC ---
   const handleSavePartner = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -399,7 +462,7 @@ export const AdminDashboard: React.FC = () => {
       }
 
       setIsAddingPartner(false);
-      setNewPartner({ type: 'partners', bgColor: '#ffffff', link: '#' });
+      setNewPartner({ bgColor: '#ffffff', link: '#' });
       setFileToUpload(null);
     } catch (error: any) {
       handleFirebaseError(error, 'збереження партнера');
@@ -545,6 +608,7 @@ export const AdminDashboard: React.FC = () => {
     }
   };
 
+  // ... (Question handlers remain the same) ...
   const handleAddProjectQuestion = () => {
     const newQ: FormQuestion = {
       id: `q_${Date.now()}`,
@@ -658,6 +722,7 @@ export const AdminDashboard: React.FC = () => {
         </div>
         
         <nav className="flex-grow p-4 space-y-2">
+          {/* ... Navigation buttons ... */}
           <button onClick={() => setActiveTab('submissions')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'submissions' ? 'bg-kmmr-pink text-white' : 'hover:bg-white/10 text-gray-300'}`}>
             <Users size={20} />
             <span className="font-medium">Заявки</span>
@@ -711,7 +776,7 @@ export const AdminDashboard: React.FC = () => {
           {loading && <Loader2 className="animate-spin text-kmmr-blue" />}
         </div>
 
-        {/* 1. SUBMISSIONS CRM */}
+        {/* 1. SUBMISSIONS CRM - Render logic same as before */}
         {activeTab === 'submissions' && (
           <div className="space-y-4">
             {/* Toolbar */}
@@ -899,6 +964,7 @@ export const AdminDashboard: React.FC = () => {
                 </div>
                 <form onSubmit={handleAddProject} className="space-y-6">
                     {/* ... Project Form fields ... */}
+                    {/* ... (Same as before) ... */}
                     <div className="flex items-center gap-4 border-b border-gray-100 pb-2">
                      <span className="text-sm font-bold text-gray-500 flex items-center gap-1"><Languages size={16}/> Мова контенту:</span>
                      <div className="flex bg-gray-100 p-1 rounded-lg">
@@ -986,10 +1052,10 @@ export const AdminDashboard: React.FC = () => {
            </div>
         )}
 
-        {/* 4. OPPORTUNITIES */}
+        {/* 4. OPPORTUNITIES - Render logic same as before */}
         {activeTab === 'opportunities' && (
           <div className="space-y-6">
-             {/* ... (Opportunity Logic - Same as before) ... */}
+             {/* ... (Opportunity Logic) ... */}
               {isAddingOpp && (
                <div className="bg-white p-6 rounded-2xl shadow-xl border border-kmmr-blue/20 mb-6 animate-fade-in-up">
                  <div className="flex justify-between items-start mb-6"><h3 className="font-bold text-xl text-kmmr-blue">Конструктор Можливості</h3><button onClick={() => setIsAddingOpp(false)}><XCircle size={24}/></button></div>
@@ -1191,6 +1257,7 @@ export const AdminDashboard: React.FC = () => {
 
                  {isAddingTeam && (
                    <div className="bg-white p-6 rounded-2xl shadow-xl border border-kmmr-blue/20 mb-6 animate-fade-in-up">
+                     {/* ... (Team Form) ... */}
                      <div className="flex justify-between items-start mb-6">
                         <h3 className="font-bold text-xl text-kmmr-blue">Додати/Редагувати Члена Команди</h3>
                         <button onClick={() => setIsAddingTeam(false)} className="text-gray-400 hover:text-gray-600"><XCircle size={24}/></button>
@@ -1331,105 +1398,221 @@ export const AdminDashboard: React.FC = () => {
            </div>
         )}
 
-        {/* 6. PARTNERS MANAGER */}
+        {/* 6. PARTNERS MANAGER (UPDATED) */}
         {activeTab === 'partners' && (
           <div className="space-y-6">
+            
+            {/* Toggle Partner vs Types */}
             <div className="flex gap-4 mb-4">
-              <button onClick={() => setPartnerFilterType('partners')} className={`px-4 py-2 rounded-lg font-bold transition-all ${partnerFilterType === 'partners' ? 'bg-kmmr-blue text-white' : 'bg-white text-gray-600'}`}>Партнери</button>
-              <button onClick={() => setPartnerFilterType('organizations')} className={`px-4 py-2 rounded-lg font-bold transition-all ${partnerFilterType === 'organizations' ? 'bg-kmmr-blue text-white' : 'bg-white text-gray-600'}`}>Організації</button>
-              <button onClick={() => setPartnerFilterType('observers')} className={`px-4 py-2 rounded-lg font-bold transition-all ${partnerFilterType === 'observers' ? 'bg-kmmr-blue text-white' : 'bg-white text-gray-600'}`}>Спостерігачі</button>
-            </div>
+                <button 
+                  onClick={() => setShowPartnerTypeManager(false)} 
+                  className={`px-4 py-2 rounded-lg font-bold transition-all ${!showPartnerTypeManager ? 'bg-kmmr-blue text-white shadow-lg' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
+                >
+                  Партнери
+                </button>
+                <button 
+                  onClick={() => setShowPartnerTypeManager(true)} 
+                  className={`px-4 py-2 rounded-lg font-bold transition-all ${showPartnerTypeManager ? 'bg-kmmr-blue text-white shadow-lg' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
+                >
+                  Керування Типами
+                </button>
+             </div>
 
-            {isAddingPartner && (
-              <div className="bg-white p-6 rounded-2xl shadow-xl border border-kmmr-blue/20 mb-6 animate-fade-in-up">
-                <div className="flex justify-between items-start mb-6">
-                  <h3 className="font-bold text-xl text-kmmr-blue">Додати/Редагувати Партнера</h3>
-                  <button onClick={() => setIsAddingPartner(false)} className="text-gray-400 hover:text-gray-600"><XCircle size={24}/></button>
-                </div>
-                <form onSubmit={handleSavePartner} className="space-y-6">
-                  <div className="flex items-center gap-4 border-b border-gray-100 pb-2">
-                    <span className="text-sm font-bold text-gray-500 flex items-center gap-1"><Languages size={16}/> Мова контенту:</span>
-                    <div className="flex bg-gray-100 p-1 rounded-lg">
-                      <button type="button" onClick={() => setPartnerLang('uk')} className={`px-3 py-1 rounded-md text-sm font-bold transition-all ${partnerLang === 'uk' ? 'bg-white shadow text-kmmr-blue' : 'text-gray-500'}`}>UA</button>
-                      <button type="button" onClick={() => setPartnerLang('en')} className={`px-3 py-1 rounded-md text-sm font-bold transition-all ${partnerLang === 'en' ? 'bg-white shadow text-kmmr-blue' : 'text-gray-500'}`}>EN</button>
-                    </div>
+            {/* PARTNER TYPES MANAGER */}
+            {showPartnerTypeManager ? (
+               <div className="space-y-6">
+                  {isAddingPartnerType && (
+                     <div className="bg-white p-6 rounded-2xl shadow-xl border border-kmmr-blue/20 mb-6 animate-fade-in-up">
+                        <div className="flex justify-between items-start mb-6">
+                           <h3 className="font-bold text-xl text-kmmr-blue">Додати/Редагувати Тип Партнера</h3>
+                           <button onClick={() => setIsAddingPartnerType(false)} className="text-gray-400 hover:text-gray-600"><XCircle size={24}/></button>
+                        </div>
+                        <form onSubmit={handleSavePartnerType} className="space-y-6">
+                           <div className="flex items-center gap-4 border-b border-gray-100 pb-2">
+                               <span className="text-sm font-bold text-gray-500 flex items-center gap-1"><Languages size={16}/> Мова контенту:</span>
+                               <div className="flex bg-gray-100 p-1 rounded-lg">
+                                  <button type="button" onClick={() => setPartnerTypeLang('uk')} className={`px-3 py-1 rounded-md text-sm font-bold transition-all ${partnerTypeLang === 'uk' ? 'bg-white shadow text-kmmr-blue' : 'text-gray-500'}`}>UA</button>
+                                  <button type="button" onClick={() => setPartnerTypeLang('en')} className={`px-3 py-1 rounded-md text-sm font-bold transition-all ${partnerTypeLang === 'en' ? 'bg-white shadow text-kmmr-blue' : 'text-gray-500'}`}>EN</button>
+                               </div>
+                           </div>
+
+                           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                              <div className="space-y-4">
+                                 {partnerTypeLang === 'uk' ? (
+                                    <>
+                                       <div><label className="text-xs font-bold text-gray-500 uppercase">Назва (UA)</label><input className="border p-2 rounded w-full" value={newPartnerType.name || ''} onChange={e => setNewPartnerType({...newPartnerType, name: e.target.value})} required placeholder="Партнери" /></div>
+                                       <div><label className="text-xs font-bold text-gray-500 uppercase">Опис (UA)</label><textarea className="border p-2 rounded w-full h-24" value={newPartnerType.description || ''} onChange={e => setNewPartnerType({...newPartnerType, description: e.target.value})} placeholder="Опис категорії..." /></div>
+                                    </>
+                                 ) : (
+                                    <>
+                                       <div><label className="text-xs font-bold text-gray-500 uppercase">Name (EN)</label><input className="border p-2 rounded w-full" value={newPartnerType.nameEn || ''} onChange={e => setNewPartnerType({...newPartnerType, nameEn: e.target.value})} /></div>
+                                       <div><label className="text-xs font-bold text-gray-500 uppercase">Description (EN)</label><textarea className="border p-2 rounded w-full h-24" value={newPartnerType.descriptionEn || ''} onChange={e => setNewPartnerType({...newPartnerType, descriptionEn: e.target.value})} /></div>
+                                    </>
+                                 )}
+                              </div>
+                              <div className="space-y-4">
+                                 <div>
+                                    <label className="text-xs font-bold text-gray-500 uppercase block mb-1">Колір фону іконки</label>
+                                    <div className="flex items-center gap-2">
+                                       <input type="color" className="h-10 w-20 rounded cursor-pointer" value={newPartnerType.color || '#031B47'} onChange={e => setNewPartnerType({...newPartnerType, color: e.target.value})} />
+                                       <span className="text-xs text-gray-400">{newPartnerType.color}</span>
+                                    </div>
+                                 </div>
+                              </div>
+                           </div>
+                           <button type="submit" disabled={loading} className="bg-kmmr-green text-white px-6 py-3 rounded-lg font-bold shadow-lg w-full flex justify-center items-center gap-2">{loading ? <Loader2 className="animate-spin" /> : <Save size={20} />} Зберегти Тип</button>
+                        </form>
+                     </div>
+                  )}
+
+                  <div onClick={() => { setNewPartnerType({ color: '#031B47' }); setIsAddingPartnerType(true); }} className="bg-white border-2 border-dashed border-gray-300 rounded-xl p-6 flex items-center justify-center cursor-pointer hover:bg-gray-50 transition-colors">
+                     <Plus className="w-6 h-6 text-gray-400 mr-2" />
+                     <span className="font-bold text-gray-600">Створити Новий Тип</span>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-4">
-                      {partnerLang === 'uk' ? (
-                        <div><label className="text-xs font-bold text-gray-500 uppercase">Назва (UA)</label><input className="border p-2 rounded w-full" value={newPartner.name || ''} onChange={e => setNewPartner({...newPartner, name: e.target.value})} required /></div>
-                      ) : (
-                        <div><label className="text-xs font-bold text-gray-500 uppercase">Name (EN)</label><input className="border p-2 rounded w-full" value={newPartner.nameEn || ''} onChange={e => setNewPartner({...newPartner, nameEn: e.target.value})} /></div>
-                      )}
-                      <div>
-                        <label className="text-xs font-bold text-gray-500 uppercase">Тип</label>
-                        <select className="border p-2 rounded w-full" value={newPartner.type} onChange={e => setNewPartner({...newPartner, type: e.target.value as any})}>
-                          <option value="partners">Партнер</option>
-                          <option value="organizations">Членська Організація</option>
-                          <option value="observers">Спостерігач</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label className="text-xs font-bold text-gray-500 uppercase">Посилання</label>
-                        <input className="border p-2 rounded w-full" value={newPartner.link || '#'} onChange={e => setNewPartner({...newPartner, link: e.target.value})} />
-                      </div>
+                  {/* Types List with DnD */}
+                  <div className="space-y-4">
+                     {partnerTypes.map((pt, index) => (
+                        <div 
+                           key={pt.id} 
+                           draggable
+                           onDragStart={() => handleDragStartPartnerType(index)}
+                           onDragOver={handleDragOver}
+                           onDrop={() => handleDropPartnerType(index)}
+                           className={`bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex items-center gap-4 cursor-move transition-all ${draggedPartnerTypeIndex === index ? 'opacity-50 border-dashed border-kmmr-blue' : ''}`}
+                        >
+                           <div className="text-gray-300"><GripVertical size={20}/></div>
+                           <div style={{ backgroundColor: pt.color }} className="w-8 h-8 rounded-full flex items-center justify-center shrink-0">
+                              <span className="text-white text-xs font-bold">Icon</span>
+                           </div>
+                           <div className="flex-grow min-w-0">
+                              <h3 className="font-bold text-gray-800">{pt.name}</h3>
+                              <p className="text-xs text-gray-500">{pt.description}</p>
+                           </div>
+                           <div className="flex items-center gap-2">
+                              <button onClick={() => { setNewPartnerType(pt); setIsAddingPartnerType(true); window.scrollTo({top:0, behavior:'smooth'}); }} className="text-kmmr-blue hover:bg-blue-50 p-2 rounded"><Edit2 size={16}/></button>
+                              <button onClick={() => deleteItem('partner_types', pt.id)} className="text-red-500 hover:bg-red-50 p-2 rounded"><Trash2 size={16}/></button>
+                           </div>
+                        </div>
+                     ))}
+                  </div>
+               </div>
+            ) : (
+              /* PARTNER ITEMS MANAGER */
+              <div className="space-y-6">
+                {/* Dynamic Filters */}
+                <div className="flex flex-wrap gap-2 mb-4 bg-gray-100 p-2 rounded-xl">
+                  {partnerTypes.length === 0 && <span className="text-sm text-gray-500 p-2">Створіть типи організацій у вкладці "Керування Типами"</span>}
+                  {partnerTypes.map(pt => (
+                    <button 
+                      key={pt.id}
+                      onClick={() => setPartnerFilterType(pt.id)} 
+                      className={`px-4 py-2 rounded-lg font-bold text-sm transition-all ${partnerFilterType === pt.id ? 'bg-white text-kmmr-blue shadow' : 'text-gray-500 hover:text-gray-700'}`}
+                    >
+                      {pt.name}
+                    </button>
+                  ))}
+                </div>
+
+                {isAddingPartner && (
+                  <div className="bg-white p-6 rounded-2xl shadow-xl border border-kmmr-blue/20 mb-6 animate-fade-in-up">
+                    <div className="flex justify-between items-start mb-6">
+                      <h3 className="font-bold text-xl text-kmmr-blue">Додати/Редагувати Партнера</h3>
+                      <button onClick={() => setIsAddingPartner(false)} className="text-gray-400 hover:text-gray-600"><XCircle size={24}/></button>
                     </div>
-                    <div className="space-y-4">
-                      <div>
-                        <label className="text-xs font-bold text-gray-500 uppercase block mb-1">Колір фону (стандарт білий)</label>
-                        <div className="flex items-center gap-2">
-                          <input type="color" className="h-10 w-20 rounded cursor-pointer" value={newPartner.bgColor || '#ffffff'} onChange={e => setNewPartner({...newPartner, bgColor: e.target.value})} />
-                          <span className="text-xs text-gray-400">{newPartner.bgColor}</span>
+                    <form onSubmit={handleSavePartner} className="space-y-6">
+                      <div className="flex items-center gap-4 border-b border-gray-100 pb-2">
+                        <span className="text-sm font-bold text-gray-500 flex items-center gap-1"><Languages size={16}/> Мова контенту:</span>
+                        <div className="flex bg-gray-100 p-1 rounded-lg">
+                          <button type="button" onClick={() => setPartnerLang('uk')} className={`px-3 py-1 rounded-md text-sm font-bold transition-all ${partnerLang === 'uk' ? 'bg-white shadow text-kmmr-blue' : 'text-gray-500'}`}>UA</button>
+                          <button type="button" onClick={() => setPartnerLang('en')} className={`px-3 py-1 rounded-md text-sm font-bold transition-all ${partnerLang === 'en' ? 'bg-white shadow text-kmmr-blue' : 'text-gray-500'}`}>EN</button>
                         </div>
                       </div>
-                      <div className="border-2 border-dashed border-gray-300 p-4 rounded-xl text-center">
-                        <label className="text-xs font-bold text-gray-500 uppercase block mb-2">Логотип</label>
-                        <input type="file" onChange={e => setFileToUpload(e.target.files ? e.target.files[0] : null)} className="w-full text-sm text-gray-500"/>
-                        {newPartner.image && (
-                          <div className="mt-2 flex justify-center">
-                            <div style={{ backgroundColor: newPartner.bgColor }} className="p-2 border rounded inline-flex">
-                              <img src={newPartner.image} className="h-10 object-contain" alt="preview"/>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-4">
+                          {partnerLang === 'uk' ? (
+                            <div><label className="text-xs font-bold text-gray-500 uppercase">Назва (UA)</label><input className="border p-2 rounded w-full" value={newPartner.name || ''} onChange={e => setNewPartner({...newPartner, name: e.target.value})} required /></div>
+                          ) : (
+                            <div><label className="text-xs font-bold text-gray-500 uppercase">Name (EN)</label><input className="border p-2 rounded w-full" value={newPartner.nameEn || ''} onChange={e => setNewPartner({...newPartner, nameEn: e.target.value})} /></div>
+                          )}
+                          <div>
+                            <label className="text-xs font-bold text-gray-500 uppercase">Тип</label>
+                            <select className="border p-2 rounded w-full" value={newPartner.type || ''} onChange={e => setNewPartner({...newPartner, type: e.target.value as any})} required>
+                              <option value="" disabled>Оберіть тип...</option>
+                              {partnerTypes.map(pt => (
+                                <option key={pt.id} value={pt.id}>{pt.name}</option>
+                              ))}
+                            </select>
+                          </div>
+                          <div>
+                            <label className="text-xs font-bold text-gray-500 uppercase">Посилання</label>
+                            <input className="border p-2 rounded w-full" value={newPartner.link || '#'} onChange={e => setNewPartner({...newPartner, link: e.target.value})} />
+                          </div>
+                        </div>
+                        <div className="space-y-4">
+                          <div>
+                            <label className="text-xs font-bold text-gray-500 uppercase block mb-1">Колір фону (стандарт білий)</label>
+                            <div className="flex items-center gap-2">
+                              <input type="color" className="h-10 w-20 rounded cursor-pointer" value={newPartner.bgColor || '#ffffff'} onChange={e => setNewPartner({...newPartner, bgColor: e.target.value})} />
+                              <span className="text-xs text-gray-400">{newPartner.bgColor}</span>
                             </div>
                           </div>
-                        )}
+                          <div className="border-2 border-dashed border-gray-300 p-4 rounded-xl text-center">
+                            <label className="text-xs font-bold text-gray-500 uppercase block mb-2">Логотип</label>
+                            <input type="file" onChange={e => setFileToUpload(e.target.files ? e.target.files[0] : null)} className="w-full text-sm text-gray-500"/>
+                            {newPartner.image && (
+                              <div className="mt-2 flex justify-center">
+                                <div style={{ backgroundColor: newPartner.bgColor }} className="p-2 border rounded inline-flex">
+                                  <img src={newPartner.image} className="h-10 object-contain" alt="preview"/>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      <button type="submit" disabled={loading} className="bg-kmmr-green text-white px-6 py-3 rounded-lg font-bold shadow-lg w-full flex justify-center items-center gap-2">{loading ? <Loader2 className="animate-spin" /> : <Save size={20} />} Зберегти Партнера</button>
+                    </form>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                  <div onClick={() => { 
+                    // Default to current filter type if available, else first type
+                    const defaultType = partnerFilterType || (partnerTypes.length > 0 ? partnerTypes[0].id : '');
+                    setNewPartner({ type: defaultType, bgColor: '#ffffff', link: '#' }); 
+                    setFileToUpload(null); 
+                    setIsAddingPartner(true); 
+                  }} className="bg-white border-2 border-dashed border-gray-300 rounded-xl p-6 flex flex-col items-center justify-center cursor-pointer hover:bg-gray-50 transition-colors aspect-video">
+                    <Plus className="w-8 h-8 text-gray-400 mb-2" />
+                    <span className="font-bold text-xs text-gray-600">Додати</span>
+                  </div>
+                  
+                  {partners.filter(p => p.type === partnerFilterType).map((partner, index) => (
+                    <div 
+                      key={partner.id} 
+                      draggable
+                      onDragStart={() => handleDragStartPartner(index)}
+                      onDragOver={handleDragOver}
+                      onDrop={() => handleDropPartner(index)}
+                      className={`relative group bg-white border border-gray-200 rounded-xl overflow-hidden cursor-move hover:shadow-lg transition-all ${draggedPartnerIndex === index ? 'opacity-50 border-dashed border-kmmr-blue' : ''}`}
+                    >
+                      <div className="aspect-video relative p-4 flex items-center justify-center" style={{ backgroundColor: partner.bgColor }}>
+                        <img src={partner.image} alt={partner.name} className="w-full h-full object-contain" />
+                        <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity bg-black/50 rounded text-white p-0.5"><GripVertical size={14}/></div>
+                      </div>
+                      <div className="p-2 text-center border-t border-gray-100">
+                        <h4 className="font-bold text-xs text-gray-800 truncate">{partner.name}</h4>
+                        <div className="flex justify-center gap-2 mt-2">
+                           <button onClick={() => { setNewPartner(partner); setIsAddingPartner(true); window.scrollTo({top:0, behavior:'smooth'}); }} className="text-kmmr-blue hover:bg-blue-50 p-1 rounded"><Edit2 size={14}/></button>
+                           <button onClick={() => deleteItem('partners', partner.id)} className="text-red-500 hover:bg-red-50 p-1 rounded"><Trash2 size={14}/></button>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                  <button type="submit" disabled={loading} className="bg-kmmr-green text-white px-6 py-3 rounded-lg font-bold shadow-lg w-full flex justify-center items-center gap-2">{loading ? <Loader2 className="animate-spin" /> : <Save size={20} />} Зберегти Партнера</button>
-                </form>
+                  ))}
+                </div>
               </div>
             )}
-
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
-              <div onClick={() => { setNewPartner({ type: partnerFilterType as any, bgColor: '#ffffff', link: '#' }); setFileToUpload(null); setIsAddingPartner(true); }} className="bg-white border-2 border-dashed border-gray-300 rounded-xl p-6 flex flex-col items-center justify-center cursor-pointer hover:bg-gray-50 transition-colors aspect-video">
-                <Plus className="w-8 h-8 text-gray-400 mb-2" />
-                <span className="font-bold text-xs text-gray-600">Додати</span>
-              </div>
-              
-              {partners.filter(p => p.type === partnerFilterType).map((partner, index) => (
-                <div 
-                  key={partner.id} 
-                  draggable
-                  onDragStart={() => handleDragStartPartner(index)}
-                  onDragOver={handleDragOver}
-                  onDrop={() => handleDropPartner(index)}
-                  className={`relative group bg-white border border-gray-200 rounded-xl overflow-hidden cursor-move hover:shadow-lg transition-all ${draggedPartnerIndex === index ? 'opacity-50 border-dashed border-kmmr-blue' : ''}`}
-                >
-                  <div className="aspect-video relative p-4 flex items-center justify-center" style={{ backgroundColor: partner.bgColor }}>
-                    <img src={partner.image} alt={partner.name} className="w-full h-full object-contain" />
-                    <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity bg-black/50 rounded text-white p-0.5"><GripVertical size={14}/></div>
-                  </div>
-                  <div className="p-2 text-center border-t border-gray-100">
-                    <h4 className="font-bold text-xs text-gray-800 truncate">{partner.name}</h4>
-                    <div className="flex justify-center gap-2 mt-2">
-                       <button onClick={() => { setNewPartner(partner); setIsAddingPartner(true); window.scrollTo({top:0, behavior:'smooth'}); }} className="text-kmmr-blue hover:bg-blue-50 p-1 rounded"><Edit2 size={14}/></button>
-                       <button onClick={() => deleteItem('partners', partner.id)} className="text-red-500 hover:bg-red-50 p-1 rounded"><Trash2 size={14}/></button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
           </div>
         )}
 

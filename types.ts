@@ -91,12 +91,22 @@ export interface DocumentItem {
   order?: number; // Sorting order
 }
 
+export interface PartnerType {
+  id: string;
+  name: string;
+  nameEn?: string;
+  description?: string;
+  descriptionEn?: string;
+  color: string; // Background color for header icon
+  order?: number;
+}
+
 export interface PartnerItem {
   id: string;
   name: string;
   nameEn?: string;
   image: string;
-  type: 'partners' | 'organizations' | 'observers';
+  type: string; // ID of PartnerType
   bgColor: string;
   link: string;
   order?: number;

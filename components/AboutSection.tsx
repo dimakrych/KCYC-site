@@ -1,44 +1,58 @@
 import React, { useEffect, useState } from 'react';
 import { SDGS_UK, SDGS_EN, PARTNER_GROUPS_UK, PARTNER_GROUPS_EN, TIMELINE_EVENTS_UK, TIMELINE_EVENTS_EN } from '../constants';
-import { Target, Flag, Users } from 'lucide-react';
+import { Target, Flag, Users, HeartHandshake } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
 import { collection, getDocs, query, orderBy } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
-import { PartnerItem } from '../types';
+import { PartnerItem, PartnerType } from '../types';
 
 export const AboutSection: React.FC = () => {
   const { language, t } = useLanguage();
   const [fetchedPartners, setFetchedPartners] = useState<PartnerItem[]>([]);
+  const [fetchedPartnerTypes, setFetchedPartnerTypes] = useState<PartnerType[]>([]);
   const [loadingPartners, setLoadingPartners] = useState(true);
   
   const sdgs = language === 'uk' ? SDGS_UK : SDGS_EN;
-  // We use static groups only for titles/descriptions now
   const staticPartnerGroups = language === 'uk' ? PARTNER_GROUPS_UK : PARTNER_GROUPS_EN;
   const timeline = language === 'uk' ? TIMELINE_EVENTS_UK : TIMELINE_EVENTS_EN;
 
   useEffect(() => {
-    const fetchPartners = async () => {
+    const fetchData = async () => {
       try {
-        const q = query(collection(db, "partners"));
-        const snapshot = await getDocs(q);
-        const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as PartnerItem));
-        // Sort by order
-        data.sort((a,b) => {
+        // Fetch Partners
+        const qPartners = query(collection(db, "partners"));
+        const snapshotPartners = await getDocs(qPartners);
+        const dataPartners = snapshotPartners.docs.map(doc => ({ id: doc.id, ...doc.data() } as PartnerItem));
+        dataPartners.sort((a,b) => {
            const orderA = a.order !== undefined ? a.order : 999;
            const orderB = b.order !== undefined ? b.order : 999;
            return orderA - orderB;
         });
-        setFetchedPartners(data);
+        setFetchedPartners(dataPartners);
+
+        // Fetch Partner Types
+        const qTypes = query(collection(db, "partner_types"));
+        const snapshotTypes = await getDocs(qTypes);
+        const dataTypes = snapshotTypes.docs.map(doc => ({ id: doc.id, ...doc.data() } as PartnerType));
+        dataTypes.sort((a,b) => {
+           const orderA = a.order !== undefined ? a.order : 999;
+           const orderB = b.order !== undefined ? b.order : 999;
+           return orderA - orderB;
+        });
+        setFetchedPartnerTypes(dataTypes);
+
       } catch (error) {
-        console.error("Error fetching partners:", error);
+        console.error("Error fetching partner data:", error);
       } finally {
         setLoadingPartners(false);
       }
     };
-    fetchPartners();
+    fetchData();
   }, []);
 
   const getPartnerName = (p: PartnerItem) => language === 'uk' ? p.name : (p.nameEn || p.name);
+  const getTypeName = (pt: PartnerType) => language === 'uk' ? pt.name : (pt.nameEn || pt.name);
+  const getTypeDesc = (pt: PartnerType) => language === 'uk' ? pt.description : (pt.descriptionEn || pt.description);
 
   return (
     <div className="space-y-20 py-16 overflow-x-hidden dark:bg-gray-950 transition-colors duration-300">
@@ -169,37 +183,32 @@ export const AboutSection: React.FC = () => {
         </div>
 
         <div className="space-y-16">
-          {staticPartnerGroups.map((group) => {
-             // Filter dynamic partners that match this group's ID (which corresponds to 'type' in PartnerItem)
-             const groupItems = fetchedPartners.length > 0 
-               ? fetchedPartners.filter(p => p.type === group.id)
-               : (language === 'uk' ? group.items : group.items); // Fallback logic needs adjustment as structure differs, but simple array check works for now if empty
-
-             // If fallback to static constants needed (fetched is empty)
-             const itemsToRender = fetchedPartners.length > 0 ? groupItems : group.items;
-
-             if (itemsToRender.length === 0) return null;
+          {/* Logic: Render sections based on fetchedPartnerTypes. 
+              If no types exist in DB (first load), fallback to staticPartnerGroups */}
+          
+          {(fetchedPartnerTypes.length > 0 ? fetchedPartnerTypes : []).map((type) => {
+             const groupItems = fetchedPartners.filter(p => p.type === type.id);
+             if (groupItems.length === 0) return null;
 
              return (
-              <div key={group.id} className="relative">
+              <div key={type.id} className="relative">
                 {/* Group Header */}
                 <div className="flex items-center gap-4 mb-8">
-                  <div className={`p-3 rounded-lg text-white ${group.color}`}>
-                    <group.icon size={24} />
+                  <div className="p-3 rounded-lg text-white flex items-center justify-center w-12 h-12 shrink-0" style={{ backgroundColor: type.color }}>
+                    <HeartHandshake size={24} />
                   </div>
                   <div>
-                    <h3 className="text-2xl font-bold text-kmmr-blue dark:text-white">{group.title}</h3>
-                    <p className="text-gray-500 dark:text-gray-400 text-sm">{group.description}</p>
+                    <h3 className="text-2xl font-bold text-kmmr-blue dark:text-white">{getTypeName(type)}</h3>
+                    <p className="text-gray-500 dark:text-gray-400 text-sm">{getTypeDesc(type)}</p>
                   </div>
                 </div>
 
                 {/* Partners Grid */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                  {itemsToRender.map((partner: any, idx: number) => {
-                     // Handle mixed types (fetched has 'link', 'bgColor'; static might not)
+                  {groupItems.map((partner: any, idx: number) => {
                      const link = partner.link || '#';
                      const bgColor = partner.bgColor || '#ffffff';
-                     const name = partner.id ? getPartnerName(partner) : partner.name;
+                     const name = getPartnerName(partner);
 
                      const CardContent = (
                         <>
@@ -236,6 +245,36 @@ export const AboutSection: React.FC = () => {
                       </div>
                     );
                   })}
+                </div>
+              </div>
+            );
+          })}
+
+          {/* Fallback for static data only if no DB types exist (initial setup) */}
+          {fetchedPartnerTypes.length === 0 && staticPartnerGroups.map((group) => {
+             // Basic static render
+             return (
+              <div key={group.id} className="relative">
+                <div className="flex items-center gap-4 mb-8">
+                  <div className={`p-3 rounded-lg text-white ${group.color}`}>
+                    <group.icon size={24} />
+                  </div>
+                  <div>
+                    <h3 className="text-2xl font-bold text-kmmr-blue dark:text-white">{group.title}</h3>
+                    <p className="text-gray-500 dark:text-gray-400 text-sm">{group.description}</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                  {group.items.map((partner: any, idx: number) => (
+                      <div key={idx} className="group relative bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-100 dark:border-gray-700 overflow-hidden hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1">
+                           <div className="aspect-video overflow-hidden relative flex items-center justify-center p-4 bg-white">
+                            <img src={partner.image} alt={partner.name} className="w-full h-full object-contain group-hover:scale-110 transition-transform duration-500"/>
+                          </div>
+                          <div className="p-4 flex items-center justify-center text-center h-20 bg-gray-50 dark:bg-gray-700">
+                             <h4 className="font-bold text-sm text-kmmr-blue dark:text-gray-200 leading-tight">{partner.name}</h4>
+                          </div>
+                      </div>
+                  ))}
                 </div>
               </div>
             );
