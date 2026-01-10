@@ -23,6 +23,7 @@ export interface Department {
   descriptionEn?: string; // English Description
   icon: any; // Can be LucideIcon (legacy/static) or string (URL from DB)
   color: string; // Tailwind class (legacy) or Hex Code (dynamic)
+  order?: number; // Sorting order
 }
 
 export interface Project {

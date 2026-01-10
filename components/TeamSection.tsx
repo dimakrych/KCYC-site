@@ -33,16 +33,19 @@ export const TeamSection: React.FC = () => {
           ...doc.data()
         } as TeamMember));
 
-        // Sorting Departments by name order (optional, could add an 'order' field later)
-        fetchedDepts.sort((a,b) => a.name.localeCompare(b.name));
+        // Sorting Departments by 'order' field, fallback to name
+        fetchedDepts.sort((a,b) => {
+          const orderA = a.order !== undefined ? a.order : 999;
+          const orderB = b.order !== undefined ? b.order : 999;
+          if (orderA !== orderB) return orderA - orderB;
+          return a.name.localeCompare(b.name);
+        });
 
         // Handle Fallbacks or Sets
         if (fetchedDepts.length > 0) {
            setDepartments(fetchedDepts);
         } else {
-           // Fallback to constants if DB is empty, but we need to map Lucide icons to strings/objects safely?
-           // Actually, types might mismatch here because legacy constants use LucideIcon and new DB uses string URL.
-           // We will handle rendering logic below.
+           // Fallback to constants if DB is empty
            setDepartments(language === 'uk' ? DEPARTMENTS_UK as any : DEPARTMENTS_EN as any);
         }
 
@@ -97,16 +100,14 @@ export const TeamSection: React.FC = () => {
           <div className="space-y-16">
             {departments.map((dept) => {
               const members = getMembersByDept(dept.id);
-              // Only show departments that have members? Optional. For now show all.
-              // const hasMembers = members.length > 0;
-
+              
               return (
                 <div key={dept.id} className="relative">
                   {/* Department Header */}
                   <div className="flex items-center gap-4 mb-8">
                     <div 
-                      className="p-3 rounded-lg text-white flex items-center justify-center w-12 h-12 shrink-0"
-                      style={{ backgroundColor: dept.color.startsWith('bg-') ? undefined : dept.color }} // Handle hex vs class
+                      className={`p-3 rounded-lg text-white flex items-center justify-center w-12 h-12 shrink-0 ${dept.color.startsWith('bg-') ? dept.color : ''}`}
+                      style={{ backgroundColor: dept.color.startsWith('bg-') ? undefined : dept.color }}
                     >
                        {/* Render Icon: Check if string (URL) or Component (Legacy) */}
                        {typeof dept.icon === 'string' ? (
@@ -114,6 +115,7 @@ export const TeamSection: React.FC = () => {
                             src={dept.icon} 
                             alt="" 
                             className="w-full h-full object-contain brightness-0 invert" 
+                            style={{ filter: 'brightness(0) invert(1)' }}
                           />
                        ) : (
                           <dept.icon size={24} />

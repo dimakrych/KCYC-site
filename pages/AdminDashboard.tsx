@@ -4,7 +4,7 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { 
-  collection, getDocs, doc, updateDoc, deleteDoc, addDoc, query, orderBy, onSnapshot 
+  collection, getDocs, doc, updateDoc, deleteDoc, addDoc, query, orderBy, onSnapshot, writeBatch 
 } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '../firebaseConfig';
@@ -27,6 +27,9 @@ export const AdminDashboard: React.FC = () => {
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
+
+  // Drag and Drop State
+  const [draggedDeptIndex, setDraggedDeptIndex] = useState<number | null>(null);
 
   // Submission Filters
   const [submissionFilter, setSubmissionFilter] = useState<'all' | 'contact' | 'application'>('all');
@@ -97,8 +100,13 @@ export const AdminDashboard: React.FC = () => {
 
       const unsubDepts = onSnapshot(collection(db, "departments"), (snapshot) => {
         const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Department));
-        // Simple sort by name
-        data.sort((a,b) => a.name.localeCompare(b.name));
+        // Sort by 'order' field, fallback to name
+        data.sort((a,b) => {
+          const orderA = a.order !== undefined ? a.order : 999;
+          const orderB = b.order !== undefined ? b.order : 999;
+          if (orderA !== orderB) return orderA - orderB;
+          return a.name.localeCompare(b.name);
+        });
         setDepartments(data);
       }, (error) => console.error("Departments listener error:", error));
 
@@ -145,6 +153,44 @@ export const AdminDashboard: React.FC = () => {
     const storageRef = ref(storage, `${folder}/${Date.now()}_${file.name}`);
     await uploadBytes(storageRef, file);
     return await getDownloadURL(storageRef);
+  };
+
+  // --- DRAG AND DROP HANDLERS (Departments) ---
+  const handleDragStart = (index: number) => {
+    setDraggedDeptIndex(index);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault(); // Necessary to allow dropping
+  };
+
+  const handleDrop = async (dropIndex: number) => {
+    if (draggedDeptIndex === null || draggedDeptIndex === dropIndex) return;
+
+    // Create a copy of the array
+    const updatedDepartments = [...departments];
+    // Remove the dragged item
+    const [draggedItem] = updatedDepartments.splice(draggedDeptIndex, 1);
+    // Insert it at the new position
+    updatedDepartments.splice(dropIndex, 0, draggedItem);
+
+    // Optimistically update state
+    setDepartments(updatedDepartments);
+    setDraggedDeptIndex(null);
+
+    // Update 'order' field in Firestore for all items (batch write for atomicity)
+    try {
+      const batch = writeBatch(db);
+      updatedDepartments.forEach((dept, index) => {
+        const deptRef = doc(db, "departments", dept.id);
+        batch.update(deptRef, { order: index });
+      });
+      await batch.commit();
+    } catch (error: any) {
+      handleFirebaseError(error, 'оновлення порядку департаментів');
+      // Revert state if needed (fetch listener will essentially handle this, 
+      // but simplistic revert is tricky without tracking previous state)
+    }
   };
 
   // --- EXTRACT UNIQUE EVENTS FOR FILTER ---
@@ -296,7 +342,9 @@ export const AdminDashboard: React.FC = () => {
           description: newDept.description || '',
           descriptionEn: newDept.descriptionEn || newDept.description || '',
           color: newDept.color || '#031B47',
-          icon: iconUrl
+          icon: iconUrl,
+          // If new, assign order as last in list. If existing, keep order.
+          order: newDept.id ? (newDept.order !== undefined ? newDept.order : 999) : departments.length
        };
 
        if (newDept.id) {
@@ -651,7 +699,7 @@ export const AdminDashboard: React.FC = () => {
           </div>
         )}
 
-        {/* 2. DOCUMENTS MANAGER, 3. PROJECTS, 4. OPPORTUNITIES - (Reusing existing structures to keep concise) */}
+        {/* 2. DOCUMENTS MANAGER, 3. PROJECTS, 4. OPPORTUNITIES */}
         {activeTab === 'docs' && (
           <div className="space-y-6">
              <div className="bg-blue-50 border border-blue-200 rounded-xl p-6 flex flex-col items-center justify-center border-dashed border-2 cursor-pointer hover:bg-blue-100 transition-colors relative">
@@ -685,25 +733,25 @@ export const AdminDashboard: React.FC = () => {
           </div>
         )}
 
+        {/* ... Projects & Opportunities ... */}
         {activeTab === 'projects' && (
-          <div className="space-y-6">
+           <div className="space-y-6">
+             {/* ... (Projects Logic - Same as before) ... */}
              {isAddingProject && (
               <div className="bg-white p-6 rounded-2xl shadow-lg border border-kmmr-pink/20 mb-6 animate-fade-in-up">
-                 {/* ... (Project Form - same as before) ... */}
                  <div className="flex justify-between items-start mb-6">
                    <h3 className="font-bold text-xl text-kmmr-blue">Додати/Редагувати Проєкт</h3>
                    <button onClick={() => setIsAddingProject(false)} className="text-gray-400 hover:text-gray-600"><XCircle size={24}/></button>
                 </div>
                 <form onSubmit={handleAddProject} className="space-y-6">
-                  {/* ... Same inputs as previous version ... */}
-                  <div className="flex items-center gap-4 border-b border-gray-100 pb-2">
+                    {/* ... Project Form fields ... */}
+                    <div className="flex items-center gap-4 border-b border-gray-100 pb-2">
                      <span className="text-sm font-bold text-gray-500 flex items-center gap-1"><Languages size={16}/> Мова контенту:</span>
                      <div className="flex bg-gray-100 p-1 rounded-lg">
                         <button type="button" onClick={() => setProjectLang('uk')} className={`px-3 py-1 rounded-md text-sm font-bold transition-all ${projectLang === 'uk' ? 'bg-white shadow text-kmmr-blue' : 'text-gray-500'}`}>UA</button>
                         <button type="button" onClick={() => setProjectLang('en')} className={`px-3 py-1 rounded-md text-sm font-bold transition-all ${projectLang === 'en' ? 'bg-white shadow text-kmmr-blue' : 'text-gray-500'}`}>EN</button>
                      </div>
                   </div>
-                  {/* ... Rest of project form ... */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                      <div className="space-y-4">
                         {projectLang === 'uk' ? (
@@ -729,7 +777,6 @@ export const AdminDashboard: React.FC = () => {
                         <div className="border-2 border-dashed border-gray-300 p-4 rounded-xl text-center"><label className="text-xs font-bold text-gray-500 uppercase block mb-2">Обкладинка (Фото)</label><input type="file" onChange={e => setFileToUpload(e.target.files ? e.target.files[0] : null)} className="w-full text-sm"/></div>
                      </div>
                   </div>
-                  {/* ... Questions Builder ... */}
                    <div className="border-t border-gray-200 pt-6">
                        <h4 className="font-bold text-lg mb-4 flex items-center gap-2"><List size={20}/> Анкета Реєстрації</h4>
                        <div className="space-y-3 mb-4">
@@ -774,16 +821,16 @@ export const AdminDashboard: React.FC = () => {
                  </div>
                ))}
             </div>
-          </div>
+           </div>
         )}
 
         {activeTab === 'opportunities' && (
           <div className="space-y-6">
-             {isAddingOpp && (
+             {/* ... (Opportunity Logic - Same as before) ... */}
+              {isAddingOpp && (
                <div className="bg-white p-6 rounded-2xl shadow-xl border border-kmmr-blue/20 mb-6 animate-fade-in-up">
                  <div className="flex justify-between items-start mb-6"><h3 className="font-bold text-xl text-kmmr-blue">Конструктор Можливості</h3><button onClick={() => setIsAddingOpp(false)}><XCircle size={24}/></button></div>
                  <form onSubmit={handleSaveOpportunity} className="space-y-6">
-                    {/* ... (Opportunity Form - same as before) ... */}
                     <div className="flex items-center gap-4 border-b border-gray-100 pb-2">
                          <span className="text-sm font-bold text-gray-500 flex items-center gap-1"><Languages size={16}/> Мова контенту:</span>
                          <div className="flex bg-gray-100 p-1 rounded-lg">
@@ -803,7 +850,6 @@ export const AdminDashboard: React.FC = () => {
                        <div className="space-y-2"><label className="text-sm font-bold text-gray-700">Тип</label><select className="w-full border p-2 rounded-lg" value={newOpp.type} onChange={e => setNewOpp({...newOpp, type: e.target.value as any})}><option value="Volunteering">Волонтерство</option><option value="Event">Подія</option><option value="Education">Навчання</option><option value="Job">Робота</option></select></div>
                        <div className="space-y-2"><label className="text-sm font-bold text-gray-700">Дедлайн</label><input className="w-full border p-2 rounded-lg" type="date" value={newOpp.deadline || ''} onChange={e => setNewOpp({...newOpp, deadline: e.target.value})} required /></div>
                     </div>
-                    {/* ... Question Builder for Opps ... */}
                     <div className="border-t border-gray-200 pt-6">
                        <h4 className="font-bold text-lg mb-4 flex items-center gap-2"><List size={20}/> Анкета</h4>
                        <div className="space-y-3 mb-4">
@@ -873,7 +919,8 @@ export const AdminDashboard: React.FC = () => {
                <div className="space-y-6">
                   {isAddingDept && (
                      <div className="bg-white p-6 rounded-2xl shadow-xl border border-kmmr-blue/20 mb-6 animate-fade-in-up">
-                        <div className="flex justify-between items-start mb-6">
+                        {/* ... (Department Form - same as before) ... */}
+                         <div className="flex justify-between items-start mb-6">
                            <h3 className="font-bold text-xl text-kmmr-blue">Додати/Редагувати Департамент</h3>
                            <button onClick={() => setIsAddingDept(false)} className="text-gray-400 hover:text-gray-600"><XCircle size={24}/></button>
                         </div>
@@ -931,9 +978,18 @@ export const AdminDashboard: React.FC = () => {
                      <span className="font-bold text-gray-600">Створити Новий Департамент</span>
                   </div>
 
+                  {/* Departments List with Drag and Drop */}
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                     {departments.map(dept => (
-                        <div key={dept.id} className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm flex items-start gap-4">
+                     {departments.map((dept, index) => (
+                        <div 
+                           key={dept.id} 
+                           draggable
+                           onDragStart={() => handleDragStart(index)}
+                           onDragOver={handleDragOver}
+                           onDrop={() => handleDrop(index)}
+                           className={`bg-white p-6 rounded-xl border border-gray-200 shadow-sm flex items-start gap-4 cursor-move transition-all ${draggedDeptIndex === index ? 'opacity-50 border-dashed border-kmmr-blue' : ''}`}
+                        >
+                           <div className="mt-2 text-gray-300"><GripVertical size={20}/></div>
                            <div style={{ backgroundColor: dept.color }} className="w-12 h-12 rounded-lg flex items-center justify-center shrink-0">
                               {dept.icon && <img src={dept.icon} alt="" className="w-6 h-6 object-contain invert-0 brightness-0 invert" style={{ filter: 'brightness(0) invert(1)' }} />}
                            </div>
@@ -950,8 +1006,8 @@ export const AdminDashboard: React.FC = () => {
                   </div>
                </div>
              ) : (
-               /* TEAM MEMBERS VIEW */
-               <div className="space-y-6">
+               /* ... (Team Members View - Same as before) ... */
+                <div className="space-y-6">
                   {/* Filter Toolbar */}
                   <div className="bg-white p-4 rounded-xl border border-gray-200 flex flex-wrap items-center gap-4">
                      <span className="text-sm font-bold text-gray-500 uppercase flex items-center gap-1"><Filter size={16}/> Фільтр:</span>
