@@ -29,7 +29,7 @@ export const Footer: React.FC = () => {
           {/* Column 1: Info */}
           <div className="space-y-4">
             <div className="flex items-center gap-3 mb-4">
-              <Logo className="h-10" />
+              <Logo className="h-16" />
               <h3 className="text-2xl font-bold text-kmmr-green">
                 {language === 'en' ? 'KCYC' : 'КММР'}
               </h3>

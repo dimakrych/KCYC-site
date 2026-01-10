@@ -30,10 +30,10 @@ export const Navbar: React.FC = () => {
   return (
     <nav className="sticky top-0 z-50 bg-white/95 dark:bg-gray-900/95 backdrop-blur-md shadow-sm border-b border-gray-100 dark:border-gray-800 transition-colors duration-300">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between h-20 items-center">
+        <div className="flex justify-between h-24 items-center">
           
           <div className="flex-shrink-0 cursor-pointer" onClick={() => navigate('/')}>
-            <Logo className="h-14" />
+            <Logo className="h-16 md:h-20" />
           </div>
 
           {/* Desktop Menu (Visible only on LG screens and up) */}

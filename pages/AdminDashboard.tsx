@@ -122,15 +122,26 @@ export const AdminDashboard: React.FC = () => {
       const detailsArray = teamDetailsStr.split('\n').filter(line => line.trim() !== '');
       const detailsEnArray = teamDetailsEnStr.split('\n').filter(line => line.trim() !== '');
 
-      await addDoc(collection(db, "team"), {
-        ...newTeamMember,
-        nameEn: newTeamMember.nameEn || newTeamMember.name,
-        roleEn: newTeamMember.roleEn || newTeamMember.role,
-        bioEn: newTeamMember.bioEn || newTeamMember.bio,
+      // Create a clean object to avoid undefined fields error
+      const teamPayload = {
+        name: newTeamMember.name || '',
+        nameEn: newTeamMember.nameEn || newTeamMember.name || '',
+        department: newTeamMember.department || '',
+        role: newTeamMember.role || '',
+        roleEn: newTeamMember.roleEn || newTeamMember.role || '',
+        bio: newTeamMember.bio || '',
+        bioEn: newTeamMember.bioEn || newTeamMember.bio || '',
+        email: newTeamMember.email || '',
         image: imageUrl,
         details: detailsArray,
         detailsEn: detailsEnArray.length > 0 ? detailsEnArray : detailsArray
-      });
+      };
+
+      if (newTeamMember.id) {
+        await updateDoc(doc(db, "team", newTeamMember.id), teamPayload);
+      } else {
+        await addDoc(collection(db, "team"), teamPayload);
+      }
 
       setIsAddingTeam(false);
       setNewTeamMember({ details: [], detailsEn: [] });
@@ -138,8 +149,8 @@ export const AdminDashboard: React.FC = () => {
       setTeamDetailsEnStr('');
       setFileToUpload(null);
     } catch (error) {
-      console.error("Error adding team member:", error);
-      alert("Помилка");
+      console.error("Error adding/updating team member:", error);
+      alert("Помилка збереження даних: " + (error as any).message);
     } finally {
       setLoading(false);
     }
@@ -161,14 +172,14 @@ export const AdminDashboard: React.FC = () => {
       }
 
       await addDoc(collection(db, "projects"), {
-        title: newProject.title,
-        titleEn: newProject.titleEn || newProject.title,
-        description: newProject.description,
-        descriptionEn: newProject.descriptionEn || newProject.description,
-        fullDescription: newProject.fullDescription || newProject.description,
-        fullDescriptionEn: newProject.fullDescriptionEn || newProject.descriptionEn || newProject.description,
+        title: newProject.title || '',
+        titleEn: newProject.titleEn || newProject.title || '',
+        description: newProject.description || '',
+        descriptionEn: newProject.descriptionEn || newProject.description || '',
+        fullDescription: newProject.fullDescription || newProject.description || '',
+        fullDescriptionEn: newProject.fullDescriptionEn || newProject.descriptionEn || newProject.description || '',
         date: newProject.date || new Date().toISOString().split('T')[0],
-        deadline: newProject.deadline,
+        deadline: newProject.deadline || '',
         image: imageUrl,
         instagramLink: newProject.instagramLink || '',
         questions: newProject.questions || []
@@ -240,11 +251,11 @@ export const AdminDashboard: React.FC = () => {
 
     try {
       await addDoc(collection(db, "opportunities"), {
-        title: newOpp.title,
-        titleEn: newOpp.titleEn || newOpp.title,
+        title: newOpp.title || '',
+        titleEn: newOpp.titleEn || newOpp.title || '',
         description: newOpp.description || '',
         descriptionEn: newOpp.descriptionEn || newOpp.description || '',
-        deadline: newOpp.deadline,
+        deadline: newOpp.deadline || '',
         type: newOpp.type || 'Event',
         link: '#', 
         questions: newOpp.questions || []

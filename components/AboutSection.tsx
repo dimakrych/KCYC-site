@@ -67,27 +67,43 @@ export const AboutSection: React.FC = () => {
             <div className="w-24 h-1 bg-kmmr-pink mx-auto mt-4 rounded-full"></div>
           </div>
 
-          <div className="space-y-12 relative border-l-4 border-gray-100 dark:border-gray-700 ml-4 md:ml-0 md:pl-0">
-            {timeline.map((event, idx) => (
-              <div key={idx} className="relative pl-12 md:pl-0">
-                <div className={`hidden md:block absolute left-[-21px] top-0 w-10 h-10 ${event.bg} rounded-full border-4 border-white dark:border-gray-800 shadow-lg z-10`}></div>
-                <div className={`md:absolute md:left-[-21px] md:top-0 w-8 h-8 ${event.bg} rounded-full border-4 border-white dark:border-gray-800 shadow-lg absolute left-[-20px] top-0`}></div>
-                
-                <div className="md:grid md:grid-cols-5 gap-8">
-                  <div className="md:col-span-1 text-right hidden md:block pt-1">
-                    <span className="text-2xl font-black text-gray-300 dark:text-gray-600">{event.year}</span>
+          {/* Timeline Container */}
+          <div className="relative ml-4 md:ml-0 md:pl-0">
+            {/* Vertical Line */}
+            <div className="absolute left-[3px] md:left-[20%] top-0 bottom-0 w-1 bg-gray-100 dark:bg-gray-700"></div>
+
+            <div className="space-y-12 relative">
+              {timeline.map((event, idx) => (
+                <div key={idx} className="relative md:grid md:grid-cols-5 gap-8 items-start">
+                  
+                  {/* Year/Label Column */}
+                  <div className="md:col-span-1 hidden md:flex justify-end items-center pr-8 pt-4">
+                    <span className="text-2xl font-black text-gray-400 dark:text-gray-500 uppercase tracking-wider text-right w-full">
+                      {event.year}
+                    </span>
                   </div>
-                  <div className="md:col-span-4 bg-gray-50 dark:bg-gray-800 p-6 rounded-2xl shadow-sm hover:shadow-md transition-shadow">
-                    <div className="flex items-center gap-3 mb-3">
-                      <event.icon className={event.color} size={24} />
-                      <h3 className="text-xl font-bold text-gray-900 dark:text-white">{event.title}</h3>
-                      <span className="md:hidden text-sm font-bold text-gray-400 ml-auto">{event.year}</span>
-                    </div>
-                    <p className="text-gray-600 dark:text-gray-400">{event.desc}</p>
+
+                  {/* Dot on Line */}
+                  <div className={`absolute left-[-6px] md:left-[calc(20%-9px)] top-6 w-5 h-5 ${event.bg} rounded-full border-4 border-white dark:border-gray-800 shadow z-10`}></div>
+
+                  {/* Content Card Column */}
+                  <div className="md:col-span-4 pl-8 md:pl-0">
+                     <div className="bg-gray-50 dark:bg-gray-800 p-6 rounded-2xl shadow-sm hover:shadow-md transition-shadow relative">
+                        {/* Mobile Year Badge */}
+                        <span className="md:hidden absolute top-4 right-4 text-sm font-black text-gray-300 dark:text-gray-600 uppercase">
+                          {event.year}
+                        </span>
+
+                        <div className="flex items-center gap-3 mb-3">
+                          <event.icon className={event.color} size={24} />
+                          <h3 className="text-xl font-bold text-gray-900 dark:text-white pr-10 md:pr-0">{event.title}</h3>
+                        </div>
+                        <p className="text-gray-600 dark:text-gray-400 leading-relaxed">{event.desc}</p>
+                     </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         </div>
       </div>
