@@ -210,7 +210,7 @@ export const AdminDashboard: React.FC = () => {
 
   // --- DRAG AND DROP HANDLERS ---
   
-  // 1. Departments
+  // ... (Same DnD handlers as before) ...
   const handleDragStartDept = (index: number) => setDraggedDeptIndex(index);
   const handleDropDept = async (dropIndex: number) => {
     if (draggedDeptIndex === null || draggedDeptIndex === dropIndex) return;
@@ -228,7 +228,6 @@ export const AdminDashboard: React.FC = () => {
     } catch (error: any) { handleFirebaseError(error, 'оновлення порядку департаментів'); }
   };
 
-  // 2. Projects
   const handleDragStartProject = (index: number) => setDraggedProjectIndex(index);
   const handleDropProject = async (dropIndex: number) => {
     if (draggedProjectIndex === null || draggedProjectIndex === dropIndex) return;
@@ -246,7 +245,6 @@ export const AdminDashboard: React.FC = () => {
     } catch (error: any) { handleFirebaseError(error, 'оновлення порядку проєктів'); }
   };
 
-  // 3. Documents
   const handleDragStartDoc = (index: number) => setDraggedDocIndex(index);
   const handleDropDoc = async (dropIndex: number) => {
     if (draggedDocIndex === null || draggedDocIndex === dropIndex) return;
@@ -264,7 +262,6 @@ export const AdminDashboard: React.FC = () => {
     } catch (error: any) { handleFirebaseError(error, 'оновлення порядку документів'); }
   };
 
-  // 4. Partner Types (DnD)
   const handleDragStartPartnerType = (index: number) => setDraggedPartnerTypeIndex(index);
   const handleDropPartnerType = async (dropIndex: number) => {
     if (draggedPartnerTypeIndex === null || draggedPartnerTypeIndex === dropIndex) return;
@@ -282,7 +279,6 @@ export const AdminDashboard: React.FC = () => {
     } catch (error: any) { handleFirebaseError(error, 'оновлення порядку типів партнерів'); }
   };
 
-  // 5. Partners (Filtered DnD)
   const handleDragStartPartner = (index: number) => setDraggedPartnerIndex(index);
   const handleDropPartner = async (dropIndex: number) => {
     if (draggedPartnerIndex === null || draggedPartnerIndex === dropIndex) return;
@@ -396,12 +392,18 @@ export const AdminDashboard: React.FC = () => {
     setLoading(true);
 
     try {
+       let iconUrl = newPartnerType.icon || "";
+       if (fileToUpload) {
+          iconUrl = await handleFileUpload(fileToUpload, 'partner_type_icons');
+       }
+
        const typePayload = {
           name: newPartnerType.name,
           nameEn: newPartnerType.nameEn || newPartnerType.name,
           description: newPartnerType.description || '',
           descriptionEn: newPartnerType.descriptionEn || newPartnerType.description || '',
           color: newPartnerType.color || '#031B47',
+          icon: iconUrl,
           order: newPartnerType.id ? (newPartnerType.order !== undefined ? newPartnerType.order : 999) : partnerTypes.length
        };
 
@@ -413,6 +415,7 @@ export const AdminDashboard: React.FC = () => {
 
        setIsAddingPartnerType(false);
        setNewPartnerType({ color: '#031B47' });
+       setFileToUpload(null);
 
     } catch (error: any) {
        handleFirebaseError(error, 'збереження типу партнера');
@@ -421,7 +424,7 @@ export const AdminDashboard: React.FC = () => {
     }
   };
 
-  // --- PARTNER LOGIC ---
+  // ... (Other handlers unchanged) ...
   const handleSavePartner = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newPartner.name || !newPartner.type) return;
@@ -471,7 +474,7 @@ export const AdminDashboard: React.FC = () => {
     }
   };
 
-  // --- TEAM MEMBER LOGIC ---
+  // ... (Reused Handlers: Team, Department, Project, Opps, Docs) ...
   const handleSaveTeamMember = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTeamMember.name || !newTeamMember.department) return;
@@ -527,7 +530,6 @@ export const AdminDashboard: React.FC = () => {
     }
   };
 
-  // --- DEPARTMENT LOGIC ---
   const handleSaveDepartment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newDept.name) return;
@@ -566,7 +568,6 @@ export const AdminDashboard: React.FC = () => {
     }
   };
 
-  // --- PROJECT, OPPORTUNITY, DOCS HANDLERS (Reused) ---
   const handleAddProject = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newProject.title || !newProject.description) return;
@@ -608,7 +609,6 @@ export const AdminDashboard: React.FC = () => {
     }
   };
 
-  // ... (Question handlers remain the same) ...
   const handleAddProjectQuestion = () => {
     const newQ: FormQuestion = {
       id: `q_${Date.now()}`,
@@ -776,7 +776,7 @@ export const AdminDashboard: React.FC = () => {
           {loading && <Loader2 className="animate-spin text-kmmr-blue" />}
         </div>
 
-        {/* 1. SUBMISSIONS CRM - Render logic same as before */}
+        {/* 1. SUBMISSIONS CRM */}
         {activeTab === 'submissions' && (
           <div className="space-y-4">
             {/* Toolbar */}
@@ -910,6 +910,7 @@ export const AdminDashboard: React.FC = () => {
           </div>
         )}
 
+        {/* ... (Projects, Docs, Opps, Team tabs same as previous) ... */}
         {/* 2. DOCUMENTS MANAGER */}
         {activeTab === 'docs' && (
           <div className="space-y-6">
@@ -1458,6 +1459,17 @@ export const AdminDashboard: React.FC = () => {
                                        <span className="text-xs text-gray-400">{newPartnerType.color}</span>
                                     </div>
                                  </div>
+                                 <div className="border-2 border-dashed border-gray-300 p-4 rounded-xl text-center">
+                                    <label className="text-xs font-bold text-gray-500 uppercase block mb-2">Іконка (SVG/PNG)</label>
+                                    <input type="file" onChange={e => setFileToUpload(e.target.files ? e.target.files[0] : null)} className="w-full text-sm text-gray-500"/>
+                                    {newPartnerType.icon && (
+                                       <div className="mt-2 flex justify-center">
+                                          <div style={{ backgroundColor: newPartnerType.color }} className="p-3 rounded-lg inline-flex">
+                                             <img src={newPartnerType.icon} className="w-8 h-8 object-contain brightness-0 invert" style={{ filter: 'brightness(0) invert(1)' }} alt="icon preview"/>
+                                          </div>
+                                       </div>
+                                    )}
+                                 </div>
                               </div>
                            </div>
                            <button type="submit" disabled={loading} className="bg-kmmr-green text-white px-6 py-3 rounded-lg font-bold shadow-lg w-full flex justify-center items-center gap-2">{loading ? <Loader2 className="animate-spin" /> : <Save size={20} />} Зберегти Тип</button>
@@ -1465,7 +1477,7 @@ export const AdminDashboard: React.FC = () => {
                      </div>
                   )}
 
-                  <div onClick={() => { setNewPartnerType({ color: '#031B47' }); setIsAddingPartnerType(true); }} className="bg-white border-2 border-dashed border-gray-300 rounded-xl p-6 flex items-center justify-center cursor-pointer hover:bg-gray-50 transition-colors">
+                  <div onClick={() => { setNewPartnerType({ color: '#031B47' }); setFileToUpload(null); setIsAddingPartnerType(true); }} className="bg-white border-2 border-dashed border-gray-300 rounded-xl p-6 flex items-center justify-center cursor-pointer hover:bg-gray-50 transition-colors">
                      <Plus className="w-6 h-6 text-gray-400 mr-2" />
                      <span className="font-bold text-gray-600">Створити Новий Тип</span>
                   </div>
@@ -1482,8 +1494,12 @@ export const AdminDashboard: React.FC = () => {
                            className={`bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex items-center gap-4 cursor-move transition-all ${draggedPartnerTypeIndex === index ? 'opacity-50 border-dashed border-kmmr-blue' : ''}`}
                         >
                            <div className="text-gray-300"><GripVertical size={20}/></div>
-                           <div style={{ backgroundColor: pt.color }} className="w-8 h-8 rounded-full flex items-center justify-center shrink-0">
-                              <span className="text-white text-xs font-bold">Icon</span>
+                           <div style={{ backgroundColor: pt.color }} className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 overflow-hidden">
+                              {pt.icon ? (
+                                <img src={pt.icon} alt="" className="w-5 h-5 object-contain brightness-0 invert" style={{ filter: 'brightness(0) invert(1)' }} />
+                              ) : (
+                                <span className="text-white text-xs font-bold">Icon</span>
+                              )}
                            </div>
                            <div className="flex-grow min-w-0">
                               <h3 className="font-bold text-gray-800">{pt.name}</h3>
@@ -1507,8 +1523,13 @@ export const AdminDashboard: React.FC = () => {
                     <button 
                       key={pt.id}
                       onClick={() => setPartnerFilterType(pt.id)} 
-                      className={`px-4 py-2 rounded-lg font-bold text-sm transition-all ${partnerFilterType === pt.id ? 'bg-white text-kmmr-blue shadow' : 'text-gray-500 hover:text-gray-700'}`}
+                      className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold text-sm transition-all ${partnerFilterType === pt.id ? 'bg-white text-kmmr-blue shadow' : 'text-gray-500 hover:text-gray-700'}`}
                     >
+                      {pt.icon && (
+                        <div className="w-4 h-4 rounded-full flex items-center justify-center" style={{ backgroundColor: pt.color }}>
+                           <img src={pt.icon} alt="" className="w-2.5 h-2.5 object-contain brightness-0 invert" style={{ filter: 'brightness(0) invert(1)' }} />
+                        </div>
+                      )}
                       {pt.name}
                     </button>
                   ))}

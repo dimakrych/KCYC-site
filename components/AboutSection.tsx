@@ -195,7 +195,11 @@ export const AboutSection: React.FC = () => {
                 {/* Group Header */}
                 <div className="flex items-center gap-4 mb-8">
                   <div className="p-3 rounded-lg text-white flex items-center justify-center w-12 h-12 shrink-0" style={{ backgroundColor: type.color }}>
-                    <HeartHandshake size={24} />
+                    {type.icon ? (
+                       <img src={type.icon} alt="" className="w-6 h-6 object-contain brightness-0 invert" style={{ filter: 'brightness(0) invert(1)' }} />
+                    ) : (
+                       <HeartHandshake size={24} />
+                    )}
                   </div>
                   <div>
                     <h3 className="text-2xl font-bold text-kmmr-blue dark:text-white">{getTypeName(type)}</h3>

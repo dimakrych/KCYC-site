@@ -98,6 +98,7 @@ export interface PartnerType {
   description?: string;
   descriptionEn?: string;
   color: string; // Background color for header icon
+  icon?: string; // URL icon
   order?: number;
 }
 
