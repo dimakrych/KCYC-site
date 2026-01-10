@@ -6,7 +6,7 @@ export interface TeamMember {
   nameEn?: string;
   role: string;
   roleEn?: string;
-  department: string;
+  department: string; // ID of the department
   bio: string;
   bioEn?: string;
   email?: string;
@@ -18,9 +18,11 @@ export interface TeamMember {
 export interface Department {
   id: string;
   name: string;
+  nameEn?: string; // English Name
   description: string;
-  icon: LucideIcon;
-  color: string;
+  descriptionEn?: string; // English Description
+  icon: any; // Can be LucideIcon (legacy/static) or string (URL from DB)
+  color: string; // Tailwind class (legacy) or Hex Code (dynamic)
 }
 
 export interface Project {

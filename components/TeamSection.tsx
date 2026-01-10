@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { DEPARTMENTS_UK, DEPARTMENTS_EN, TEAM_MEMBERS_UK, TEAM_MEMBERS_EN } from '../constants';
 import { Modal } from './ui/Modal';
-import { TeamMember } from '../types';
+import { TeamMember, Department } from '../types';
 import { useLanguage } from '../context/LanguageContext';
 import { collection, getDocs, query } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
@@ -10,37 +10,58 @@ import { Loader2 } from 'lucide-react';
 export const TeamSection: React.FC = () => {
   const [selectedMember, setSelectedMember] = useState<TeamMember | null>(null);
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
   const [loading, setLoading] = useState(true);
   const { language, t } = useLanguage();
 
-  const departments = language === 'uk' ? DEPARTMENTS_UK : DEPARTMENTS_EN;
-
   useEffect(() => {
-    const fetchTeam = async () => {
+    const fetchData = async () => {
       try {
-        const q = query(collection(db, "team"));
-        const querySnapshot = await getDocs(q);
-        const fetchedTeam: TeamMember[] = querySnapshot.docs.map(doc => ({
+        // Fetch Departments
+        const qDepts = query(collection(db, "departments"));
+        const deptSnapshot = await getDocs(qDepts);
+        const fetchedDepts: Department[] = deptSnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        } as Department));
+
+        // Fetch Team
+        const qTeam = query(collection(db, "team"));
+        const teamSnapshot = await getDocs(qTeam);
+        const fetchedTeam: TeamMember[] = teamSnapshot.docs.map(doc => ({
           id: doc.id,
           ...doc.data()
         } as TeamMember));
 
+        // Sorting Departments by name order (optional, could add an 'order' field later)
+        fetchedDepts.sort((a,b) => a.name.localeCompare(b.name));
+
+        // Handle Fallbacks or Sets
+        if (fetchedDepts.length > 0) {
+           setDepartments(fetchedDepts);
+        } else {
+           // Fallback to constants if DB is empty, but we need to map Lucide icons to strings/objects safely?
+           // Actually, types might mismatch here because legacy constants use LucideIcon and new DB uses string URL.
+           // We will handle rendering logic below.
+           setDepartments(language === 'uk' ? DEPARTMENTS_UK as any : DEPARTMENTS_EN as any);
+        }
+
         if (fetchedTeam.length > 0) {
           setTeamMembers(fetchedTeam);
         } else {
-          // Fallback to constants if DB is empty
           setTeamMembers(language === 'uk' ? TEAM_MEMBERS_UK : TEAM_MEMBERS_EN);
         }
+
       } catch (error) {
-        console.warn("Using static team data due to:", error);
-        // Fallback to constants on error (e.g. permission denied)
+        console.warn("Using static data due to error:", error);
+        setDepartments(language === 'uk' ? DEPARTMENTS_UK as any : DEPARTMENTS_EN as any);
         setTeamMembers(language === 'uk' ? TEAM_MEMBERS_UK : TEAM_MEMBERS_EN);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchTeam();
+    fetchData();
   }, [language]);
 
   // Function to get members for a specific department
@@ -53,6 +74,9 @@ export const TeamSection: React.FC = () => {
   const getMemberRole = (m: TeamMember) => language === 'uk' ? m.role : (m.roleEn || m.role);
   const getMemberBio = (m: TeamMember) => language === 'uk' ? m.bio : (m.bioEn || m.bio);
   const getMemberDetails = (m: TeamMember) => language === 'uk' ? m.details : (m.detailsEn || m.details);
+
+  const getDeptName = (d: Department) => language === 'uk' ? d.name : (d.nameEn || d.name);
+  const getDeptDesc = (d: Department) => language === 'uk' ? d.description : (d.descriptionEn || d.description);
 
   return (
     <div className="py-16 bg-white dark:bg-gray-950 min-h-screen transition-colors duration-300">
@@ -73,24 +97,37 @@ export const TeamSection: React.FC = () => {
           <div className="space-y-16">
             {departments.map((dept) => {
               const members = getMembersByDept(dept.id);
-              const hasMembers = members.length > 0;
+              // Only show departments that have members? Optional. For now show all.
+              // const hasMembers = members.length > 0;
 
               return (
                 <div key={dept.id} className="relative">
                   {/* Department Header */}
                   <div className="flex items-center gap-4 mb-8">
-                    <div className={`p-3 rounded-lg text-white ${dept.color}`}>
-                      <dept.icon size={24} />
+                    <div 
+                      className="p-3 rounded-lg text-white flex items-center justify-center w-12 h-12 shrink-0"
+                      style={{ backgroundColor: dept.color.startsWith('bg-') ? undefined : dept.color }} // Handle hex vs class
+                    >
+                       {/* Render Icon: Check if string (URL) or Component (Legacy) */}
+                       {typeof dept.icon === 'string' ? (
+                          <img 
+                            src={dept.icon} 
+                            alt="" 
+                            className="w-full h-full object-contain brightness-0 invert" 
+                          />
+                       ) : (
+                          <dept.icon size={24} />
+                       )}
                     </div>
                     <div>
-                      <h3 className="text-2xl font-bold text-kmmr-blue dark:text-white">{dept.name}</h3>
-                      <p className="text-gray-500 dark:text-gray-400 text-sm">{dept.description}</p>
+                      <h3 className="text-2xl font-bold text-kmmr-blue dark:text-white">{getDeptName(dept)}</h3>
+                      <p className="text-gray-500 dark:text-gray-400 text-sm">{getDeptDesc(dept)}</p>
                     </div>
                   </div>
 
                   {/* Members Grid */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                    {hasMembers ? (
+                    {members.length > 0 ? (
                       members.map((member) => (
                         <div 
                           key={member.id}
@@ -111,8 +148,7 @@ export const TeamSection: React.FC = () => {
                         </div>
                       ))
                     ) : (
-                      // Placeholder if no specific members listed
-                      <div className="col-span-full p-8 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-xl text-center text-gray-400">
+                      <div className="col-span-full p-4 border border-dashed border-gray-200 dark:border-gray-700 rounded-xl text-center text-gray-400 text-sm">
                         {t('team.empty')}
                       </div>
                     )}
