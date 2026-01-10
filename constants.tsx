@@ -194,7 +194,7 @@ export const PARTNER_GROUPS_UK: PartnerGroup[] = [
       { name: 'IHUB', image: placeholder('IHUB') },
       { name: 'Kyiv Campus', image: placeholder('Kyiv Campus') },
       { name: 'Your communication', image: placeholder('Your communication') },
-      { name: 'Київський молодіжний центр', image: placeholder('КМЦ') }
+      { name: 'Київський молодіжний центр', image: '//kcyc-site.firebasestorage.app/LOGO PAR/1697035317_Logo_Київський_молодіжний_центр_Final_2_Color (1).png' }
     ].map(item => ({ ...item, icon: Briefcase }))
   },
   {
@@ -213,7 +213,7 @@ export const PARTNER_GROUPS_UK: PartnerGroup[] = [
       { name: 'Скаути України', image: placeholder('Скаути') },
       { name: 'Український Альянс', image: placeholder('Укр Альянс') },
       { name: 'Центр соціальних транформацій', image: placeholder('ЦСТ') },
-      { name: 'Aiesec', image: placeholder('Aiesec') },
+      { name: 'Aiesec', image: 'gs://kcyc-site.firebasestorage.app/LOGO PAR/Blue-Logo aiesec.png' },
       { name: 'Erasmus Students Network', image: placeholder('ESN') },
       { name: 'Key Generation', image: placeholder('Key Gen') },
       { name: "Let's do it", image: placeholder("Let's do it") },
