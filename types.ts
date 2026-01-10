@@ -39,6 +39,7 @@ export interface Project {
   image: string;
   instagramLink?: string;
   questions?: FormQuestion[]; // Custom form configuration specific to this project
+  order?: number; // Sorting order
 }
 
 export type FormFieldType = 'text' | 'textarea' | 'social' | 'select';
@@ -87,8 +88,21 @@ export interface DocumentItem {
   date: string;
   size?: string;
   link: string;
+  order?: number; // Sorting order
 }
 
+export interface PartnerItem {
+  id: string;
+  name: string;
+  nameEn?: string;
+  image: string;
+  type: 'partners' | 'organizations' | 'observers';
+  bgColor: string;
+  link: string;
+  order?: number;
+}
+
+// Legacy types for constants (used for group headers)
 export interface Partner {
   name: string;
   image: string;
@@ -100,7 +114,7 @@ export interface PartnerGroup {
   description: string;
   icon: LucideIcon;
   color: string;
-  items: Partner[];
+  items: Partner[]; // Used only for static fallback
 }
 
 // New Types for Backend/Admin

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
-  Users, FileText, Calendar, LogOut, Plus, Search, Trash2, Edit2, Download, Briefcase, CheckCircle, XCircle, Clock, Loader2, Save, GripVertical, List, Languages, Image as ImageIcon, Smile, Filter, ChevronDown, Building2, Palette
+  Users, FileText, Calendar, LogOut, Plus, Search, Trash2, Edit2, Download, Briefcase, CheckCircle, XCircle, Clock, Loader2, Save, GripVertical, List, Languages, Image as ImageIcon, Smile, Filter, ChevronDown, Building2, Palette, Handshake, Link as LinkIcon
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { 
@@ -9,14 +9,14 @@ import {
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '../firebaseConfig';
 import { useAuth } from '../context/AuthContext';
-import { ContactSubmission, DocumentItem, Project, Opportunity, FormQuestion, TeamMember, Department } from '../types';
+import { ContactSubmission, DocumentItem, Project, Opportunity, FormQuestion, TeamMember, Department, PartnerItem } from '../types';
 // @ts-ignore - using importmap for xlsx
 import { utils, writeFile } from 'xlsx';
 
 export const AdminDashboard: React.FC = () => {
   const navigate = useNavigate();
   const { logout } = useAuth();
-  const activeTabState = useState<'submissions' | 'projects' | 'docs' | 'opportunities' | 'team'>('submissions');
+  const activeTabState = useState<'submissions' | 'projects' | 'docs' | 'opportunities' | 'team' | 'partners'>('submissions');
   const [activeTab, setActiveTab] = activeTabState;
   const [loading, setLoading] = useState(true);
 
@@ -27,9 +27,13 @@ export const AdminDashboard: React.FC = () => {
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
+  const [partners, setPartners] = useState<PartnerItem[]>([]);
 
   // Drag and Drop State
   const [draggedDeptIndex, setDraggedDeptIndex] = useState<number | null>(null);
+  const [draggedProjectIndex, setDraggedProjectIndex] = useState<number | null>(null);
+  const [draggedDocIndex, setDraggedDocIndex] = useState<number | null>(null);
+  const [draggedPartnerIndex, setDraggedPartnerIndex] = useState<number | null>(null);
 
   // Submission Filters
   const [submissionFilter, setSubmissionFilter] = useState<'all' | 'contact' | 'application'>('all');
@@ -38,6 +42,9 @@ export const AdminDashboard: React.FC = () => {
   // Team Filters & State
   const [teamFilterDept, setTeamFilterDept] = useState<string>('all');
   const [showDeptManager, setShowDeptManager] = useState(false);
+
+  // Partners Filter
+  const [partnerFilterType, setPartnerFilterType] = useState<string>('partners');
 
   // Form States
   const [isAddingProject, setIsAddingProject] = useState(false);
@@ -57,6 +64,10 @@ export const AdminDashboard: React.FC = () => {
   const [isAddingDept, setIsAddingDept] = useState(false);
   const [newDept, setNewDept] = useState<Partial<Department>>({ color: '#031B47' });
   const [deptLang, setDeptLang] = useState<'uk' | 'en'>('uk');
+
+  const [isAddingPartner, setIsAddingPartner] = useState(false);
+  const [newPartner, setNewPartner] = useState<Partial<PartnerItem>>({ type: 'partners', bgColor: '#ffffff', link: '#' });
+  const [partnerLang, setPartnerLang] = useState<'uk' | 'en'>('uk');
 
   const [fileToUpload, setFileToUpload] = useState<File | null>(null);
 
@@ -80,11 +91,21 @@ export const AdminDashboard: React.FC = () => {
 
       const unsubProjects = onSnapshot(collection(db, "projects"), (snapshot) => {
         const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Project));
+        data.sort((a,b) => {
+          const orderA = a.order !== undefined ? a.order : 999;
+          const orderB = b.order !== undefined ? b.order : 999;
+          return orderA - orderB;
+        });
         setProjects(data);
       }, (error) => console.error("Projects listener error:", error));
 
       const unsubDocs = onSnapshot(collection(db, "documents"), (snapshot) => {
         const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as DocumentItem));
+        data.sort((a,b) => {
+          const orderA = a.order !== undefined ? a.order : 999;
+          const orderB = b.order !== undefined ? b.order : 999;
+          return orderA - orderB;
+        });
         setDocuments(data);
       }, (error) => console.error("Docs listener error:", error));
       
@@ -100,7 +121,6 @@ export const AdminDashboard: React.FC = () => {
 
       const unsubDepts = onSnapshot(collection(db, "departments"), (snapshot) => {
         const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Department));
-        // Sort by 'order' field, fallback to name
         data.sort((a,b) => {
           const orderA = a.order !== undefined ? a.order : 999;
           const orderB = b.order !== undefined ? b.order : 999;
@@ -109,6 +129,16 @@ export const AdminDashboard: React.FC = () => {
         });
         setDepartments(data);
       }, (error) => console.error("Departments listener error:", error));
+
+      const unsubPartners = onSnapshot(collection(db, "partners"), (snapshot) => {
+        const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as PartnerItem));
+        data.sort((a,b) => {
+          const orderA = a.order !== undefined ? a.order : 999;
+          const orderB = b.order !== undefined ? b.order : 999;
+          return orderA - orderB;
+        });
+        setPartners(data);
+      }, (error) => console.error("Partners listener error:", error));
 
       setLoading(false);
 
@@ -119,6 +149,7 @@ export const AdminDashboard: React.FC = () => {
         unsubOpps();
         unsubTeam();
         unsubDepts();
+        unsubPartners();
       };
     } catch (e) {
       console.error("Setup listeners failed", e);
@@ -155,42 +186,101 @@ export const AdminDashboard: React.FC = () => {
     return await getDownloadURL(storageRef);
   };
 
-  // --- DRAG AND DROP HANDLERS (Departments) ---
-  const handleDragStart = (index: number) => {
-    setDraggedDeptIndex(index);
-  };
-
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault(); // Necessary to allow dropping
-  };
-
-  const handleDrop = async (dropIndex: number) => {
+  // --- DRAG AND DROP HANDLERS ---
+  
+  // 1. Departments
+  const handleDragStartDept = (index: number) => setDraggedDeptIndex(index);
+  const handleDropDept = async (dropIndex: number) => {
     if (draggedDeptIndex === null || draggedDeptIndex === dropIndex) return;
-
-    // Create a copy of the array
-    const updatedDepartments = [...departments];
-    // Remove the dragged item
-    const [draggedItem] = updatedDepartments.splice(draggedDeptIndex, 1);
-    // Insert it at the new position
-    updatedDepartments.splice(dropIndex, 0, draggedItem);
-
-    // Optimistically update state
-    setDepartments(updatedDepartments);
+    const updated = [...departments];
+    const [draggedItem] = updated.splice(draggedDeptIndex, 1);
+    updated.splice(dropIndex, 0, draggedItem);
+    setDepartments(updated);
     setDraggedDeptIndex(null);
-
-    // Update 'order' field in Firestore for all items (batch write for atomicity)
     try {
       const batch = writeBatch(db);
-      updatedDepartments.forEach((dept, index) => {
-        const deptRef = doc(db, "departments", dept.id);
-        batch.update(deptRef, { order: index });
+      updated.forEach((item, index) => {
+        batch.update(doc(db, "departments", item.id), { order: index });
       });
       await batch.commit();
-    } catch (error: any) {
-      handleFirebaseError(error, 'оновлення порядку департаментів');
-      // Revert state if needed (fetch listener will essentially handle this, 
-      // but simplistic revert is tricky without tracking previous state)
-    }
+    } catch (error: any) { handleFirebaseError(error, 'оновлення порядку департаментів'); }
+  };
+
+  // 2. Projects
+  const handleDragStartProject = (index: number) => setDraggedProjectIndex(index);
+  const handleDropProject = async (dropIndex: number) => {
+    if (draggedProjectIndex === null || draggedProjectIndex === dropIndex) return;
+    const updated = [...projects];
+    const [draggedItem] = updated.splice(draggedProjectIndex, 1);
+    updated.splice(dropIndex, 0, draggedItem);
+    setProjects(updated);
+    setDraggedProjectIndex(null);
+    try {
+      const batch = writeBatch(db);
+      updated.forEach((item, index) => {
+        batch.update(doc(db, "projects", item.id), { order: index });
+      });
+      await batch.commit();
+    } catch (error: any) { handleFirebaseError(error, 'оновлення порядку проєктів'); }
+  };
+
+  // 3. Documents
+  const handleDragStartDoc = (index: number) => setDraggedDocIndex(index);
+  const handleDropDoc = async (dropIndex: number) => {
+    if (draggedDocIndex === null || draggedDocIndex === dropIndex) return;
+    const updated = [...documents];
+    const [draggedItem] = updated.splice(draggedDocIndex, 1);
+    updated.splice(dropIndex, 0, draggedItem);
+    setDocuments(updated);
+    setDraggedDocIndex(null);
+    try {
+      const batch = writeBatch(db);
+      updated.forEach((item, index) => {
+        batch.update(doc(db, "documents", item.id), { order: index });
+      });
+      await batch.commit();
+    } catch (error: any) { handleFirebaseError(error, 'оновлення порядку документів'); }
+  };
+
+  // 4. Partners (Filtered DnD)
+  const handleDragStartPartner = (index: number) => setDraggedPartnerIndex(index);
+  const handleDropPartner = async (dropIndex: number) => {
+    if (draggedPartnerIndex === null || draggedPartnerIndex === dropIndex) return;
+    
+    // We are reordering within the filtered list
+    const filteredList = partners.filter(p => p.type === partnerFilterType);
+    const updatedFiltered = [...filteredList];
+    
+    const [draggedItem] = updatedFiltered.splice(draggedPartnerIndex, 1);
+    updatedFiltered.splice(dropIndex, 0, draggedItem);
+    
+    // Now we need to merge this back into the main list or just update IDs
+    // Easier: Just update 'order' for items in this specific type group
+    // Note: To allow global unique ordering, we might need a sophisticated approach.
+    // Simplest: We only update order for *these* items, but we need to know their relative global order?
+    // Alternative: Just give them a new order index based on their position in this sub-list + a base offset?
+    // Let's keep it simple: We just update the 'order' field for all items in this Type group to be consistent 0, 1, 2... 
+    // This works because frontend filters by type then sorts.
+    
+    // Update local state (visual only for now, fetch will fix sync)
+    // Construct new full list
+    const otherItems = partners.filter(p => p.type !== partnerFilterType);
+    const newFullList = [...otherItems, ...updatedFiltered];
+    setPartners(newFullList);
+    setDraggedPartnerIndex(null);
+
+    try {
+      const batch = writeBatch(db);
+      updatedFiltered.forEach((item, index) => {
+        batch.update(doc(db, "partners", item.id), { order: index });
+      });
+      await batch.commit();
+    } catch (error: any) { handleFirebaseError(error, 'оновлення порядку партнерів'); }
+  };
+
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault(); 
   };
 
   // --- EXTRACT UNIQUE EVENTS FOR FILTER ---
@@ -268,6 +358,56 @@ export const AdminDashboard: React.FC = () => {
     writeFile(workbook, fileName);
   };
 
+  // --- PARTNER LOGIC ---
+  const handleSavePartner = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newPartner.name || !newPartner.type) return;
+    setLoading(true);
+
+    try {
+      let imageUrl = "https://placehold.co/200x100";
+      if (fileToUpload) {
+         try {
+           imageUrl = await handleFileUpload(fileToUpload, 'partners');
+         } catch(storageErr: any) {
+            handleFirebaseError(storageErr, 'завантаження лого');
+            setLoading(false);
+            return;
+         }
+      } else if (newPartner.image) {
+        imageUrl = newPartner.image;
+      }
+
+      // Determine order: if new, put at end of its type list
+      const typePartners = partners.filter(p => p.type === newPartner.type);
+      const nextOrder = newPartner.id ? (newPartner.order ?? 999) : typePartners.length;
+
+      const partnerPayload = {
+        name: newPartner.name,
+        nameEn: newPartner.nameEn || newPartner.name,
+        type: newPartner.type,
+        image: imageUrl,
+        bgColor: newPartner.bgColor || '#ffffff',
+        link: newPartner.link || '#',
+        order: nextOrder
+      };
+
+      if (newPartner.id) {
+         await updateDoc(doc(db, "partners", newPartner.id), partnerPayload);
+      } else {
+         await addDoc(collection(db, "partners"), partnerPayload);
+      }
+
+      setIsAddingPartner(false);
+      setNewPartner({ type: 'partners', bgColor: '#ffffff', link: '#' });
+      setFileToUpload(null);
+    } catch (error: any) {
+      handleFirebaseError(error, 'збереження партнера');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // --- TEAM MEMBER LOGIC ---
   const handleSaveTeamMember = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -343,7 +483,6 @@ export const AdminDashboard: React.FC = () => {
           descriptionEn: newDept.descriptionEn || newDept.description || '',
           color: newDept.color || '#031B47',
           icon: iconUrl,
-          // If new, assign order as last in list. If existing, keep order.
           order: newDept.id ? (newDept.order !== undefined ? newDept.order : 999) : departments.length
        };
 
@@ -393,7 +532,8 @@ export const AdminDashboard: React.FC = () => {
         deadline: newProject.deadline || '',
         image: imageUrl,
         instagramLink: newProject.instagramLink || '',
-        questions: newProject.questions || []
+        questions: newProject.questions || [],
+        order: newProject.id ? (newProject.order !== undefined ? newProject.order : 999) : projects.length
       });
       setIsAddingProject(false);
       setNewProject({ questions: [] });
@@ -486,7 +626,8 @@ export const AdminDashboard: React.FC = () => {
           type: file.name.split('.').pop()?.toUpperCase() || 'FILE',
           date: new Date().toLocaleDateString('uk-UA'),
           size: (file.size / 1024 / 1024).toFixed(2) + ' MB',
-          link: url
+          link: url,
+          order: documents.length
         });
         alert('Документ завантажено!');
       } catch (err: any) {
@@ -536,6 +677,10 @@ export const AdminDashboard: React.FC = () => {
             <Smile size={20} />
             <span className="font-medium">Команда</span>
           </button>
+          <button onClick={() => setActiveTab('partners')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'partners' ? 'bg-kmmr-pink text-white' : 'hover:bg-white/10 text-gray-300'}`}>
+            <Handshake size={20} />
+            <span className="font-medium">Партнери</span>
+          </button>
           <button onClick={() => setActiveTab('docs')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'docs' ? 'bg-kmmr-pink text-white' : 'hover:bg-white/10 text-gray-300'}`}>
             <FileText size={20} />
             <span className="font-medium">Документи</span>
@@ -561,6 +706,7 @@ export const AdminDashboard: React.FC = () => {
             {activeTab === 'opportunities' && 'Актуальні Можливості'}
             {activeTab === 'docs' && 'Документообіг'}
             {activeTab === 'team' && 'Управління Командою'}
+            {activeTab === 'partners' && 'Керування Партнерами'}
           </h2>
           {loading && <Loader2 className="animate-spin text-kmmr-blue" />}
         </div>
@@ -621,7 +767,7 @@ export const AdminDashboard: React.FC = () => {
             </div>
 
             <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
-               {/* ... Table (Same as before) ... */}
+               {/* ... Table ... */}
               {filteredSubmissions.length === 0 ? (
                  <div className="p-12 text-center flex flex-col items-center text-gray-400">
                     <Search className="w-12 h-12 mb-2 opacity-50"/>
@@ -699,7 +845,7 @@ export const AdminDashboard: React.FC = () => {
           </div>
         )}
 
-        {/* 2. DOCUMENTS MANAGER, 3. PROJECTS, 4. OPPORTUNITIES */}
+        {/* 2. DOCUMENTS MANAGER */}
         {activeTab === 'docs' && (
           <div className="space-y-6">
              <div className="bg-blue-50 border border-blue-200 rounded-xl p-6 flex flex-col items-center justify-center border-dashed border-2 cursor-pointer hover:bg-blue-100 transition-colors relative">
@@ -713,9 +859,18 @@ export const AdminDashboard: React.FC = () => {
                <p className="text-sm text-gray-500 mb-4">PDF, DOCX (Max 10MB)</p>
                <span className="bg-kmmr-blue text-white px-6 py-2 rounded-lg font-bold">Оберіть файл</span>
             </div>
+            
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {documents.map(doc => (
-                <div key={doc.id} className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm flex items-start gap-4 group">
+              {documents.map((doc, index) => (
+                <div 
+                  key={doc.id} 
+                  draggable
+                  onDragStart={() => handleDragStartDoc(index)}
+                  onDragOver={handleDragOver}
+                  onDrop={() => handleDropDoc(index)}
+                  className={`bg-white p-6 rounded-xl border border-gray-200 shadow-sm flex items-start gap-4 group cursor-move transition-all ${draggedDocIndex === index ? 'opacity-50 border-dashed border-kmmr-blue' : ''}`}
+                >
+                  <div className="mt-2 text-gray-300"><GripVertical size={20}/></div>
                   <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center shrink-0">
                     <FileText className="text-gray-500" />
                   </div>
@@ -733,10 +888,9 @@ export const AdminDashboard: React.FC = () => {
           </div>
         )}
 
-        {/* ... Projects & Opportunities ... */}
+        {/* 3. PROJECTS */}
         {activeTab === 'projects' && (
            <div className="space-y-6">
-             {/* ... (Projects Logic - Same as before) ... */}
              {isAddingProject && (
               <div className="bg-white p-6 rounded-2xl shadow-lg border border-kmmr-pink/20 mb-6 animate-fade-in-up">
                  <div className="flex justify-between items-start mb-6">
@@ -805,9 +959,17 @@ export const AdminDashboard: React.FC = () => {
                <div onClick={() => setIsAddingProject(true)} className="bg-gray-50 border-2 border-dashed border-gray-300 rounded-2xl flex flex-col items-center justify-center h-96 cursor-pointer hover:bg-gray-100 transition-colors group">
                  <Plus className="w-8 h-8 text-kmmr-blue" /><span className="font-bold text-gray-500 text-lg mt-2">Створити Проєкт</span>
                </div>
-               {projects.map(project => (
-                 <div key={project.id} className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm flex flex-col hover:shadow-md transition-shadow">
+               {projects.map((project, index) => (
+                 <div 
+                   key={project.id} 
+                   draggable
+                   onDragStart={() => handleDragStartProject(index)}
+                   onDragOver={handleDragOver}
+                   onDrop={() => handleDropProject(index)}
+                   className={`bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm flex flex-col hover:shadow-md transition-all cursor-move ${draggedProjectIndex === index ? 'opacity-50 border-dashed border-kmmr-blue' : ''}`}
+                 >
                    <div className="h-48 bg-gray-200 relative group">
+                     <div className="absolute top-2 right-2 z-10 p-1 bg-black/30 rounded text-white"><GripVertical size={16}/></div>
                      <img src={project.image} alt="" className="w-full h-full object-cover" />
                    </div>
                    <div className="p-5 flex-grow">
@@ -824,6 +986,7 @@ export const AdminDashboard: React.FC = () => {
            </div>
         )}
 
+        {/* 4. OPPORTUNITIES */}
         {activeTab === 'opportunities' && (
           <div className="space-y-6">
              {/* ... (Opportunity Logic - Same as before) ... */}
@@ -895,7 +1058,7 @@ export const AdminDashboard: React.FC = () => {
           </div>
         )}
         
-        {/* 5. TEAM MANAGER (UPDATED) */}
+        {/* 5. TEAM MANAGER */}
         {activeTab === 'team' && (
            <div className="space-y-6">
              {/* Toggle between Members and Departments */}
@@ -919,7 +1082,7 @@ export const AdminDashboard: React.FC = () => {
                <div className="space-y-6">
                   {isAddingDept && (
                      <div className="bg-white p-6 rounded-2xl shadow-xl border border-kmmr-blue/20 mb-6 animate-fade-in-up">
-                        {/* ... (Department Form - same as before) ... */}
+                        {/* ... (Department Form) ... */}
                          <div className="flex justify-between items-start mb-6">
                            <h3 className="font-bold text-xl text-kmmr-blue">Додати/Редагувати Департамент</h3>
                            <button onClick={() => setIsAddingDept(false)} className="text-gray-400 hover:text-gray-600"><XCircle size={24}/></button>
@@ -984,9 +1147,9 @@ export const AdminDashboard: React.FC = () => {
                         <div 
                            key={dept.id} 
                            draggable
-                           onDragStart={() => handleDragStart(index)}
+                           onDragStart={() => handleDragStartDept(index)}
                            onDragOver={handleDragOver}
-                           onDrop={() => handleDrop(index)}
+                           onDrop={() => handleDropDept(index)}
                            className={`bg-white p-6 rounded-xl border border-gray-200 shadow-sm flex items-start gap-4 cursor-move transition-all ${draggedDeptIndex === index ? 'opacity-50 border-dashed border-kmmr-blue' : ''}`}
                         >
                            <div className="mt-2 text-gray-300"><GripVertical size={20}/></div>
@@ -1006,7 +1169,7 @@ export const AdminDashboard: React.FC = () => {
                   </div>
                </div>
              ) : (
-               /* ... (Team Members View - Same as before) ... */
+               /* ... (Team Members View) ... */
                 <div className="space-y-6">
                   {/* Filter Toolbar */}
                   <div className="bg-white p-4 rounded-xl border border-gray-200 flex flex-wrap items-center gap-4">
@@ -1034,6 +1197,7 @@ export const AdminDashboard: React.FC = () => {
                      </div>
                      
                      <form onSubmit={handleSaveTeamMember} className="space-y-6">
+                        {/* ... fields ... */}
                         <div className="flex items-center gap-4 border-b border-gray-100 pb-2">
                              <span className="text-sm font-bold text-gray-500 flex items-center gap-1"><Languages size={16}/> Мова контенту:</span>
                              <div className="flex bg-gray-100 p-1 rounded-lg">
@@ -1165,6 +1329,108 @@ export const AdminDashboard: React.FC = () => {
                </div>
              )}
            </div>
+        )}
+
+        {/* 6. PARTNERS MANAGER */}
+        {activeTab === 'partners' && (
+          <div className="space-y-6">
+            <div className="flex gap-4 mb-4">
+              <button onClick={() => setPartnerFilterType('partners')} className={`px-4 py-2 rounded-lg font-bold transition-all ${partnerFilterType === 'partners' ? 'bg-kmmr-blue text-white' : 'bg-white text-gray-600'}`}>Партнери</button>
+              <button onClick={() => setPartnerFilterType('organizations')} className={`px-4 py-2 rounded-lg font-bold transition-all ${partnerFilterType === 'organizations' ? 'bg-kmmr-blue text-white' : 'bg-white text-gray-600'}`}>Організації</button>
+              <button onClick={() => setPartnerFilterType('observers')} className={`px-4 py-2 rounded-lg font-bold transition-all ${partnerFilterType === 'observers' ? 'bg-kmmr-blue text-white' : 'bg-white text-gray-600'}`}>Спостерігачі</button>
+            </div>
+
+            {isAddingPartner && (
+              <div className="bg-white p-6 rounded-2xl shadow-xl border border-kmmr-blue/20 mb-6 animate-fade-in-up">
+                <div className="flex justify-between items-start mb-6">
+                  <h3 className="font-bold text-xl text-kmmr-blue">Додати/Редагувати Партнера</h3>
+                  <button onClick={() => setIsAddingPartner(false)} className="text-gray-400 hover:text-gray-600"><XCircle size={24}/></button>
+                </div>
+                <form onSubmit={handleSavePartner} className="space-y-6">
+                  <div className="flex items-center gap-4 border-b border-gray-100 pb-2">
+                    <span className="text-sm font-bold text-gray-500 flex items-center gap-1"><Languages size={16}/> Мова контенту:</span>
+                    <div className="flex bg-gray-100 p-1 rounded-lg">
+                      <button type="button" onClick={() => setPartnerLang('uk')} className={`px-3 py-1 rounded-md text-sm font-bold transition-all ${partnerLang === 'uk' ? 'bg-white shadow text-kmmr-blue' : 'text-gray-500'}`}>UA</button>
+                      <button type="button" onClick={() => setPartnerLang('en')} className={`px-3 py-1 rounded-md text-sm font-bold transition-all ${partnerLang === 'en' ? 'bg-white shadow text-kmmr-blue' : 'text-gray-500'}`}>EN</button>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-4">
+                      {partnerLang === 'uk' ? (
+                        <div><label className="text-xs font-bold text-gray-500 uppercase">Назва (UA)</label><input className="border p-2 rounded w-full" value={newPartner.name || ''} onChange={e => setNewPartner({...newPartner, name: e.target.value})} required /></div>
+                      ) : (
+                        <div><label className="text-xs font-bold text-gray-500 uppercase">Name (EN)</label><input className="border p-2 rounded w-full" value={newPartner.nameEn || ''} onChange={e => setNewPartner({...newPartner, nameEn: e.target.value})} /></div>
+                      )}
+                      <div>
+                        <label className="text-xs font-bold text-gray-500 uppercase">Тип</label>
+                        <select className="border p-2 rounded w-full" value={newPartner.type} onChange={e => setNewPartner({...newPartner, type: e.target.value as any})}>
+                          <option value="partners">Партнер</option>
+                          <option value="organizations">Членська Організація</option>
+                          <option value="observers">Спостерігач</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-xs font-bold text-gray-500 uppercase">Посилання</label>
+                        <input className="border p-2 rounded w-full" value={newPartner.link || '#'} onChange={e => setNewPartner({...newPartner, link: e.target.value})} />
+                      </div>
+                    </div>
+                    <div className="space-y-4">
+                      <div>
+                        <label className="text-xs font-bold text-gray-500 uppercase block mb-1">Колір фону (стандарт білий)</label>
+                        <div className="flex items-center gap-2">
+                          <input type="color" className="h-10 w-20 rounded cursor-pointer" value={newPartner.bgColor || '#ffffff'} onChange={e => setNewPartner({...newPartner, bgColor: e.target.value})} />
+                          <span className="text-xs text-gray-400">{newPartner.bgColor}</span>
+                        </div>
+                      </div>
+                      <div className="border-2 border-dashed border-gray-300 p-4 rounded-xl text-center">
+                        <label className="text-xs font-bold text-gray-500 uppercase block mb-2">Логотип</label>
+                        <input type="file" onChange={e => setFileToUpload(e.target.files ? e.target.files[0] : null)} className="w-full text-sm text-gray-500"/>
+                        {newPartner.image && (
+                          <div className="mt-2 flex justify-center">
+                            <div style={{ backgroundColor: newPartner.bgColor }} className="p-2 border rounded inline-flex">
+                              <img src={newPartner.image} className="h-10 object-contain" alt="preview"/>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  <button type="submit" disabled={loading} className="bg-kmmr-green text-white px-6 py-3 rounded-lg font-bold shadow-lg w-full flex justify-center items-center gap-2">{loading ? <Loader2 className="animate-spin" /> : <Save size={20} />} Зберегти Партнера</button>
+                </form>
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
+              <div onClick={() => { setNewPartner({ type: partnerFilterType as any, bgColor: '#ffffff', link: '#' }); setFileToUpload(null); setIsAddingPartner(true); }} className="bg-white border-2 border-dashed border-gray-300 rounded-xl p-6 flex flex-col items-center justify-center cursor-pointer hover:bg-gray-50 transition-colors aspect-video">
+                <Plus className="w-8 h-8 text-gray-400 mb-2" />
+                <span className="font-bold text-xs text-gray-600">Додати</span>
+              </div>
+              
+              {partners.filter(p => p.type === partnerFilterType).map((partner, index) => (
+                <div 
+                  key={partner.id} 
+                  draggable
+                  onDragStart={() => handleDragStartPartner(index)}
+                  onDragOver={handleDragOver}
+                  onDrop={() => handleDropPartner(index)}
+                  className={`relative group bg-white border border-gray-200 rounded-xl overflow-hidden cursor-move hover:shadow-lg transition-all ${draggedPartnerIndex === index ? 'opacity-50 border-dashed border-kmmr-blue' : ''}`}
+                >
+                  <div className="aspect-video relative p-4 flex items-center justify-center" style={{ backgroundColor: partner.bgColor }}>
+                    <img src={partner.image} alt={partner.name} className="w-full h-full object-contain" />
+                    <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity bg-black/50 rounded text-white p-0.5"><GripVertical size={14}/></div>
+                  </div>
+                  <div className="p-2 text-center border-t border-gray-100">
+                    <h4 className="font-bold text-xs text-gray-800 truncate">{partner.name}</h4>
+                    <div className="flex justify-center gap-2 mt-2">
+                       <button onClick={() => { setNewPartner(partner); setIsAddingPartner(true); window.scrollTo({top:0, behavior:'smooth'}); }} className="text-kmmr-blue hover:bg-blue-50 p-1 rounded"><Edit2 size={14}/></button>
+                       <button onClick={() => deleteItem('partners', partner.id)} className="text-red-500 hover:bg-red-50 p-1 rounded"><Trash2 size={14}/></button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         )}
 
       </main>
