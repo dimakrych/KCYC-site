@@ -205,7 +205,7 @@ export const PARTNER_GROUPS_UK: PartnerGroup[] = [
     color: 'bg-kmmr-green',
     items: [
       { name: 'Взаємодія молоді', image: placeholder('Взаємодія') },
-      { name: 'CIM', image: 'public/LOGO PAR/сім лого.jpg' },
+      { name: 'CIM', image: 'https://firebasestorage.googleapis.com/v0/b/kcyc-site.firebasestorage.app/o/%D1%81%D1%96%D0%BC%20%D0%BB%D0%BE%D0%B3%D0%BE.jpg?alt=media&token=1e55637d-8cf8-475f-8498-60d94d033058' },
       { name: 'Відрада', image: placeholder('Відрада') },
       { name: 'Дакус', image: placeholder('Дакус') },
       { name: 'Німецький молодіжний клуб', image: placeholder('НМК') },
