@@ -184,17 +184,17 @@ export const PARTNER_GROUPS_UK: PartnerGroup[] = [
     icon: HeartHandshake,
     color: 'bg-kmmr-blue dark:bg-blue-400',
     items: [
-      { name: 'Будинок Кіно', image: placeholder('Будинок Кіно') },
-      { name: 'Департамент Молоді та Спорту', image: placeholder('Департамент МС') },
-      { name: 'В КПДЮ', image: placeholder('КПДЮ') },
-      { name: 'Німецький Дім-Київ', image: placeholder('Німецький Дім') },
-      { name: 'Averina', image: placeholder('Averina') },
-      { name: 'Aware zone', image: placeholder('Aware zone') },
+      { name: 'Будинок Кіно', image: 'https://firebasestorage.googleapis.com/v0/b/kcyc-site.firebasestorage.app/o/LOGO%20PAR%2FGemini_Generated_Image_lya5eplya5eplya5.png?alt=media&token=96dfc804-a29a-48da-8c35-d0e9cfef0849' },
+      { name: 'Департамент Молоді та Спорту', image: 'https://firebasestorage.googleapis.com/v0/b/kcyc-site.firebasestorage.app/o/LOGO%20PAR%2FLogo_DMSK_Final_2_Color%20(1).png?alt=media&token=62e2431e-38b5-4753-b1f4-58377a2a449e' },
+      { name: 'В КПДЮ', image: 'https://firebasestorage.googleapis.com/v0/b/kcyc-site.firebasestorage.app/o/LOGO%20PAR%2Flogo_90_circle.png?alt=media&token=fe4eb823-ce68-4a9e-9d07-521c20aaac4f' },
+      { name: 'Німецький Дім-Київ', image: 'https://firebasestorage.googleapis.com/v0/b/kcyc-site.firebasestorage.app/o/LOGO%20PAR%2FDH11.png?alt=media&token=f09de9e1-3fc3-4603-8a37-fad8f089e14a' },
+      { name: 'Averina', image: 'https://firebasestorage.googleapis.com/v0/b/kcyc-site.firebasestorage.app/o/LOGO%20PAR%2Faverina_logo.png?alt=media&token=ada8b36a-8568-441c-89d9-c779c882e1d2' },
+      { name: 'Aware zone', image: 'https://firebasestorage.googleapis.com/v0/b/kcyc-site.firebasestorage.app/o/LOGO%20PAR%2FGemini_Generated_Image_5ur8do5ur8do5ur8%20(1).png?alt=media&token=59c423f5-cfa7-4ab4-a336-002f88772462' },
       { name: 'EPA', image: placeholder('EPA') },
-      { name: 'IHUB', image: placeholder('IHUB') },
-      { name: 'Kyiv Campus', image: placeholder('Kyiv Campus') },
-      { name: 'Your communication', image: placeholder('Your communication') },
-      { name: 'Київський молодіжний центр', image: '//kcyc-site.firebasestorage.app/LOGO PAR/1697035317_Logo_Київський_молодіжний_центр_Final_2_Color (1).png' }
+      { name: 'IHUB', image: 'https://firebasestorage.googleapis.com/v0/b/kcyc-site.firebasestorage.app/o/LOGO%20PAR%2FLogo_small-01.png?alt=media&token=6ff480d6-50ea-48ed-b57d-57daac5242ca' },
+      { name: 'Kyiv Campus', image: 'https://firebasestorage.googleapis.com/v0/b/kcyc-site.firebasestorage.app/o/LOGO%20PAR%2FGemini_Generated_Image_hlev7shlev7shlev.png?alt=media&token=b741c80b-3284-4d5c-be68-28751c511e9e' },
+      { name: 'Your communication', image: 'https://firebasestorage.googleapis.com/v0/b/kcyc-site.firebasestorage.app/o/LOGO%20PAR%2FIMAGE%202025-08-13%2012_20_53%20(1).jpg?alt=media&token=acd7f206-ae78-4a95-b54e-54fdc9d8bc3a' },
+      { name: 'Київський молодіжний центр', image: 'https://firebasestorage.googleapis.com/v0/b/kcyc-site.firebasestorage.app/o/LOGO%20PAR%2F1697035317_Logo_%D0%9A%D0%B8%D1%97%D0%B2%D1%81%D1%8C%D0%BA%D0%B8%D0%B9_%D0%BC%D0%BE%D0%BB%D0%BE%D0%B4%D1%96%D0%B6%D0%BD%D0%B8%D0%B9_%D1%86%D0%B5%D0%BD%D1%82%D1%80_Final_2_Color%20(1).png?alt=media&token=4b6bc600-2487-4591-a996-9d6ac17843ec' }
     ].map(item => ({ ...item, icon: Briefcase }))
   },
   {
@@ -204,21 +204,21 @@ export const PARTNER_GROUPS_UK: PartnerGroup[] = [
     icon: Building2,
     color: 'bg-kmmr-green',
     items: [
-      { name: 'Взаємодія молоді', image: placeholder('Взаємодія') },
-      { name: 'CIM', image: 'https://firebasestorage.googleapis.com/v0/b/kcyc-site.firebasestorage.app/o/%D1%81%D1%96%D0%BC%20%D0%BB%D0%BE%D0%B3%D0%BE.jpg?alt=media&token=1e55637d-8cf8-475f-8498-60d94d033058' },
-      { name: 'Відрада', image: placeholder('Відрада') },
-      { name: 'Дакус', image: placeholder('Дакус') },
-      { name: 'Німецький молодіжний клуб', image: placeholder('НМК') },
-      { name: 'Ранганатха', image: placeholder('Ранганатха') },
-      { name: 'Скаути України', image: placeholder('Скаути') },
-      { name: 'Український Альянс', image: placeholder('Укр Альянс') },
-      { name: 'Центр соціальних транформацій', image: placeholder('ЦСТ') },
-      { name: 'Aiesec', image: 'gs://kcyc-site.firebasestorage.app/LOGO PAR/Blue-Logo aiesec.png' },
-      { name: 'Erasmus Students Network', image: placeholder('ESN') },
-      { name: 'Key Generation', image: placeholder('Key Gen') },
-      { name: "Let's do it", image: placeholder("Let's do it") },
-      { name: 'Qhub', image: placeholder('Qhub') },
-      { name: 'Thesmos Ares', image: placeholder('Thesmos Ares') },
+      { name: 'Взаємодія молоді', image: 'https://firebasestorage.googleapis.com/v0/b/kcyc-site.firebasestorage.app/o/LOGO%20PAR%2FRectangle.png?alt=media&token=28ad8a63-3a60-43bd-bae2-c5014bb95d7b' },
+      { name: 'CIM', image: 'https://firebasestorage.googleapis.com/v0/b/kcyc-site.firebasestorage.app/o/LOGO%20PAR%2F%D1%81%D1%96%D0%BC%20%D0%BB%D0%BE%D0%B3%D0%BE.jpg?alt=media&token=8914be4c-810d-4536-aa55-1e20f6c4a8fe' },
+      { name: 'Відрада', image: 'https://firebasestorage.googleapis.com/v0/b/kcyc-site.firebasestorage.app/o/LOGO%20PAR%2FVidrada2.png?alt=media&token=4bc00c65-c70f-45dd-a151-31d04f7d1b3c' },
+      { name: 'Дакус', image: 'https://firebasestorage.googleapis.com/v0/b/kcyc-site.firebasestorage.app/o/LOGO%20PAR%2FLogo.png?alt=media&token=00ef570b-93a4-4213-a89d-bcb74d5fd56f' },
+      { name: 'Німецький молодіжний клуб', image: 'https://firebasestorage.googleapis.com/v0/b/kcyc-site.firebasestorage.app/o/LOGO%20PAR%2FLogo_1%20(big%20size)%20black.png?alt=media&token=894c9fb5-77d9-4f35-a14d-a93eb9af822f' },
+      { name: 'Ранганатха', image: 'https://firebasestorage.googleapis.com/v0/b/kcyc-site.firebasestorage.app/o/LOGO%20PAR%2FIMG-ef2c9b40e9901795dc50ce33e20bffc3-V.jpg?alt=media&token=4906a610-51b5-452c-b8ce-ecb60adbbfe1' },
+      { name: 'Скаути України', image: 'https://firebasestorage.googleapis.com/v0/b/kcyc-site.firebasestorage.app/o/LOGO%20PAR%2Ficon_primary.png?alt=media&token=cb255c9d-e975-41b0-89e8-fd98ac68097d' },
+      { name: 'Український Альянс', image: 'https://firebasestorage.googleapis.com/v0/b/kcyc-site.firebasestorage.app/o/LOGO%20PAR%2FInstagram%20ua.png?alt=media&token=4e85c548-9450-4155-94bc-4f6646abad60' },
+      { name: 'Центр соціальних транформацій', image: 'https://firebasestorage.googleapis.com/v0/b/kcyc-site.firebasestorage.app/o/LOGO%20PAR%2F%D0%93%D0%BE%D0%BB%D0%BE%D0%B2%D0%BD%D0%B8%D0%B8%CC%86%20%D1%87%D0%BE%D1%80%D0%BD%D0%B8%D0%B8%CC%86%20%D0%BB%D0%BE%D0%B3%D0%BE%D1%82%D0%B8%D0%BF%20%D0%B2%20%D0%BA%D0%BE%D0%BB%D1%96.png?alt=media&token=edda6103-cd17-4a23-81f9-a3971710731a' },
+      { name: 'Aiesec', image: 'https://firebasestorage.googleapis.com/v0/b/kcyc-site.firebasestorage.app/o/LOGO%20PAR%2FBlue-Logo%20aiesec.png?alt=media&token=1535a1b5-1395-4534-b910-b4e48f81208d' },
+      { name: 'Erasmus Students Network', image: 'https://firebasestorage.googleapis.com/v0/b/kcyc-site.firebasestorage.app/o/LOGO%20PAR%2FUA-kyiv-logo-colour.png?alt=media&token=63e0f02e-17f1-4c04-b087-8ed050916a89' },
+      { name: 'Key Generation', image: 'https://firebasestorage.googleapis.com/v0/b/kcyc-site.firebasestorage.app/o/LOGO%20PAR%2FGroup%206654.png?alt=media&token=987a3126-ac6d-4579-a7e2-aba52e23ab5e' },
+      { name: "Let's do it", image: "https://firebasestorage.googleapis.com/v0/b/kcyc-site.firebasestorage.app/o/LOGO%20PAR%2FLOGO_LDU_UKR_COLOR%20(1).png?alt=media&token=86eedec7-dfe9-4fd0-92cb-7654a13f6e5f" },
+      { name: 'Qhub', image: 'https://firebasestorage.googleapis.com/v0/b/kcyc-site.firebasestorage.app/o/LOGO%20PAR%2FQ-Hub%20%D0%BB%D0%BE%D0%B3%D0%BE.png?alt=media&token=c29102f4-fcf8-4cc1-8862-a16256b331cc' },
+      { name: 'Thesmos Ares', image: 'https://firebasestorage.googleapis.com/v0/b/kcyc-site.firebasestorage.app/o/LOGO%20PAR%2Ftalogo3-03%201.png?alt=media&token=ff6aa348-8903-4b24-b78f-7415d03009d7' },
     ].map(item => ({ ...item, icon: Users }))
   },
   {
@@ -228,8 +228,8 @@ export const PARTNER_GROUPS_UK: PartnerGroup[] = [
     icon: Eye,
     color: 'bg-kmmr-pink',
     items: [
-      { name: 'КМРС', image: placeholder('КМРС') },
-      { name: 'СПУ', image: placeholder('СПУ') },
+      { name: 'КМРС', image: 'https://firebasestorage.googleapis.com/v0/b/kcyc-site.firebasestorage.app/o/LOGO%20PAR%2Fcolored.png?alt=media&token=469b5cdc-78fe-4fa1-be99-a18eb608e8bf' },
+      { name: 'СПУ', image: 'https://firebasestorage.googleapis.com/v0/b/kcyc-site.firebasestorage.app/o/LOGO%20PAR%2Flogo%20spu.png?alt=media&token=9ebe4b0b-8d9f-4708-b087-f9075ba245f2' },
     ].map(item => ({ ...item, icon: Eye }))
   }
 ];
