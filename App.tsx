@@ -25,7 +25,7 @@ const ScrollToTop = () => {
 };
 
 // Protected Route Component using AuthContext
-const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
+const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, loading } = useAuth();
   
   if (loading) {
@@ -40,7 +40,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 };
 
 // Layout for Public Pages (With Navbar and Footer)
-const PublicLayout = ({ children }: { children: React.ReactNode }) => (
+const PublicLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   <div className="flex flex-col min-h-screen font-sans text-gray-800 bg-white dark:bg-gray-950 dark:text-gray-100 transition-colors duration-300">
     <Navbar />
     <main className="flex-grow">

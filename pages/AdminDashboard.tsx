@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
-  Users, FileText, Calendar, LogOut, Plus, Search, Trash2, Edit2, Download, Briefcase, CheckCircle, XCircle, Clock, Loader2, Save, GripVertical, List, Languages, Image as ImageIcon, Smile, Filter
+  Users, FileText, Calendar, LogOut, Plus, Search, Trash2, Edit2, Download, Briefcase, CheckCircle, XCircle, Clock, Loader2, Save, GripVertical, List, Languages, Image as ImageIcon, Smile, Filter, ChevronDown
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { 
@@ -10,6 +10,8 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '../firebaseConfig';
 import { useAuth } from '../context/AuthContext';
 import { ContactSubmission, DocumentItem, Project, Opportunity, FormQuestion, TeamMember } from '../types';
+// @ts-ignore - using importmap for xlsx
+import { utils, writeFile } from 'xlsx';
 
 export const AdminDashboard: React.FC = () => {
   const navigate = useNavigate();
@@ -27,6 +29,7 @@ export const AdminDashboard: React.FC = () => {
 
   // Submission Filters
   const [submissionFilter, setSubmissionFilter] = useState<'all' | 'contact' | 'application'>('all');
+  const [selectedEventFilter, setSelectedEventFilter] = useState<string>('all');
 
   // Form States
   const [isAddingProject, setIsAddingProject] = useState(false);
@@ -40,7 +43,6 @@ export const AdminDashboard: React.FC = () => {
   const [isAddingTeam, setIsAddingTeam] = useState(false);
   const [newTeamMember, setNewTeamMember] = useState<Partial<TeamMember>>({ details: [], detailsEn: [] });
   const [teamLang, setTeamLang] = useState<'uk' | 'en'>('uk');
-  // Temporary state for bullet points textarea
   const [teamDetailsStr, setTeamDetailsStr] = useState('');
   const [teamDetailsEnStr, setTeamDetailsEnStr] = useState('');
 
@@ -128,9 +130,40 @@ export const AdminDashboard: React.FC = () => {
     return await getDownloadURL(storageRef);
   };
 
-  // --- EXPORT TO CSV ---
-  const downloadCSV = () => {
-    // Determine what we are exporting based on filter
+  // --- EXTRACT UNIQUE EVENTS FOR FILTER ---
+  const uniqueEvents = useMemo(() => {
+    const events = new Set<string>();
+    submissions.forEach((sub: any) => {
+      if (sub.formType === 'opportunity_application' && sub.opportunityTitle) {
+        events.add(sub.opportunityTitle);
+      }
+    });
+    return Array.from(events);
+  }, [submissions]);
+
+  // --- FILTER LOGIC ---
+  const getFilteredSubmissions = () => {
+    return submissions.filter(sub => {
+      const isApp = (sub as any).formType === 'opportunity_application';
+      
+      // 1. Filter by Type
+      if (submissionFilter === 'application' && !isApp) return false;
+      if (submissionFilter === 'contact' && isApp) return false;
+
+      // 2. Filter by Event (only if showing applications or all)
+      if (selectedEventFilter !== 'all') {
+         if (!isApp) return false; // Hide contacts if filtering by specific event
+         if ((sub as any).opportunityTitle !== selectedEventFilter) return false;
+      }
+
+      return true;
+    });
+  };
+
+  const filteredSubmissions = getFilteredSubmissions();
+
+  // --- EXPORT TO EXCEL ---
+  const downloadExcel = () => {
     const dataToExport = getFilteredSubmissions();
     
     if (dataToExport.length === 0) {
@@ -138,74 +171,55 @@ export const AdminDashboard: React.FC = () => {
       return;
     }
 
-    // Define headers
-    const headers = ["ID", "Дата", "Статус", "Тип", "Ім'я", "Телефон", "Email", "Подія/Департамент", "Відповіді/Мотивація"];
-    
-    // Map rows
-    const rows = dataToExport.map(sub => {
+    // Format data for Excel
+    const formattedData = dataToExport.map(sub => {
+      const isApp = (sub as any).formType === 'opportunity_application';
       const date = sub.createdAt && typeof sub.createdAt === 'object' 
-        ? new Date((sub.createdAt as any).seconds * 1000).toLocaleDateString() 
+        ? new Date((sub.createdAt as any).seconds * 1000).toLocaleString('uk-UA') 
         : sub.createdAt;
       
-      const type = (sub as any).formType === 'opportunity_application' ? 'Реєстрація' : 'Контакт';
-      const eventOrDept = (sub as any).opportunityTitle || sub.department || '-';
-      
-      // Format answers into a single string cell
-      let details = sub.motivation || '';
+      const baseObj = {
+        "ID": sub.id,
+        "Дата": date,
+        "Статус": sub.status,
+        "Тип": isApp ? 'Реєстрація' : 'Контакт',
+        "Ім'я": sub.name,
+        "Телефон": sub.phone,
+        "Email": sub.email,
+        "Подія/Департамент": (sub as any).opportunityTitle || sub.department || '-',
+        "Мотивація": sub.motivation || '',
+      };
+
+      // Flatten dynamic answers for better Excel columns
       if ((sub as any).answers) {
-         details = Object.entries((sub as any).answers)
-           .map(([k, v]) => `${k}: ${v}`)
-           .join('; ');
+         Object.entries((sub as any).answers).forEach(([key, val]) => {
+            // Clean keys for headers
+            const cleanKey = key.replace(/_/g, ' ').replace('q ', '');
+            (baseObj as any)[`Відповідь: ${cleanKey}`] = val;
+         });
       }
 
-      // Escape quotes for CSV
-      const escape = (str: string) => `"${String(str || '').replace(/"/g, '""')}"`;
-
-      return [
-        escape(sub.id),
-        escape(date),
-        escape(sub.status),
-        escape(type),
-        escape(sub.name),
-        escape(sub.phone),
-        escape(sub.email),
-        escape(eventOrDept),
-        escape(details)
-      ].join(',');
+      return baseObj;
     });
 
-    // Add BOM for Excel UTF-8 compatibility
-    const csvContent = "\uFEFF" + headers.join(',') + '\n' + rows.join('\n');
+    // Generate Excel file
+    const worksheet = utils.json_to_sheet(formattedData);
+    const workbook = utils.book_new();
+    utils.book_append_sheet(workbook, worksheet, "Заявки");
     
-    // Create download link
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.setAttribute("href", url);
-    link.setAttribute("download", `submissions_export_${new Date().toISOString().split('T')[0]}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    // Auto-width for columns (simple approximation)
+    const max_width = formattedData.reduce((w, r) => Math.max(w, Object.keys(r).length), 10);
+    worksheet["!cols"] = [ { wch: 20 }, { wch: 20 }, { wch: 10 }, { wch: 10 }, { wch: 25 }, { wch: 15 }, { wch: 25 }, { wch: 30 } ];
+
+    const fileName = selectedEventFilter !== 'all' 
+      ? `Export_${selectedEventFilter.substring(0, 20)}_${new Date().toISOString().split('T')[0]}.xlsx`
+      : `Export_All_${new Date().toISOString().split('T')[0]}.xlsx`;
+
+    writeFile(workbook, fileName);
   };
 
-  // --- FILTER LOGIC ---
-  const getFilteredSubmissions = () => {
-    return submissions.filter(sub => {
-      if (submissionFilter === 'all') return true;
-      if (submissionFilter === 'application') return (sub as any).formType === 'opportunity_application';
-      if (submissionFilter === 'contact') return (sub as any).formType === 'general_contact' || !(sub as any).formType; // Fallback for old data
-      return true;
-    });
-  };
-
-  const filteredSubmissions = getFilteredSubmissions();
-
-  // ... (Previous logic for projects, team, opps remains unchanged) ...
-  // [ALL PREVIOUS HANDLER FUNCTIONS: handleSaveTeamMember, handleAddProject, etc. GO HERE]
-  // To save space in this response, I am re-using the existing logic blocks implicitly. 
-  // IMPORTANT: In the actual file replace, ensure all handlers from the previous version are preserved.
-  
-  // --- TEAM LOGIC ---
+  // ... (PROJECT, TEAM, OPP logic functions remain unchanged)
+  // [ALL PREVIOUS HANDLER FUNCTIONS: handleSaveTeamMember, handleAddProject, etc.]
   const handleSaveTeamMember = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTeamMember.name || !newTeamMember.department) return;
@@ -261,8 +275,6 @@ export const AdminDashboard: React.FC = () => {
     }
   };
 
-
-  // --- PROJECT LOGIC ---
   const handleAddProject = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newProject.title || !newProject.description) return;
@@ -329,7 +341,6 @@ export const AdminDashboard: React.FC = () => {
     setNewProject({ ...newProject, questions: updatedQuestions });
   };
   
-  // --- OPPORTUNITY LOGIC ---
   const handleAddQuestion = () => {
     const newQ: FormQuestion = {
       id: `q_${Date.now()}`,
@@ -474,30 +485,49 @@ export const AdminDashboard: React.FC = () => {
           <div className="space-y-4">
             {/* Toolbar */}
             <div className="flex flex-wrap items-center justify-between gap-4 bg-white p-4 rounded-xl border border-gray-200">
-              <div className="flex gap-2 bg-gray-100 p-1 rounded-lg">
-                <button 
-                  onClick={() => setSubmissionFilter('all')}
-                  className={`px-4 py-2 rounded-md text-sm font-bold transition-all ${submissionFilter === 'all' ? 'bg-white shadow text-kmmr-blue' : 'text-gray-500 hover:text-gray-700'}`}
-                >
-                  Всі
-                </button>
-                <button 
-                  onClick={() => setSubmissionFilter('contact')}
-                  className={`px-4 py-2 rounded-md text-sm font-bold transition-all ${submissionFilter === 'contact' ? 'bg-white shadow text-kmmr-blue' : 'text-gray-500 hover:text-gray-700'}`}
-                >
-                  Зворотній зв'язок
-                </button>
-                <button 
-                  onClick={() => setSubmissionFilter('application')}
-                  className={`px-4 py-2 rounded-md text-sm font-bold transition-all ${submissionFilter === 'application' ? 'bg-white shadow text-kmmr-blue' : 'text-gray-500 hover:text-gray-700'}`}
-                >
-                  Реєстрації
-                </button>
+              <div className="flex items-center gap-4">
+                <div className="flex gap-2 bg-gray-100 p-1 rounded-lg">
+                  <button 
+                    onClick={() => { setSubmissionFilter('all'); setSelectedEventFilter('all'); }}
+                    className={`px-4 py-2 rounded-md text-sm font-bold transition-all ${submissionFilter === 'all' ? 'bg-white shadow text-kmmr-blue' : 'text-gray-500 hover:text-gray-700'}`}
+                  >
+                    Всі
+                  </button>
+                  <button 
+                    onClick={() => { setSubmissionFilter('contact'); setSelectedEventFilter('all'); }}
+                    className={`px-4 py-2 rounded-md text-sm font-bold transition-all ${submissionFilter === 'contact' ? 'bg-white shadow text-kmmr-blue' : 'text-gray-500 hover:text-gray-700'}`}
+                  >
+                    Зворотній зв'язок
+                  </button>
+                  <button 
+                    onClick={() => setSubmissionFilter('application')}
+                    className={`px-4 py-2 rounded-md text-sm font-bold transition-all ${submissionFilter === 'application' ? 'bg-white shadow text-kmmr-blue' : 'text-gray-500 hover:text-gray-700'}`}
+                  >
+                    Реєстрації
+                  </button>
+                </div>
+                
+                {/* Event Dropdown Filter */}
+                {submissionFilter !== 'contact' && uniqueEvents.length > 0 && (
+                   <div className="relative">
+                      <select 
+                        value={selectedEventFilter}
+                        onChange={(e) => setSelectedEventFilter(e.target.value)}
+                        className="appearance-none pl-4 pr-10 py-2.5 rounded-lg border border-gray-200 bg-white text-sm font-semibold text-gray-700 hover:border-kmmr-blue focus:outline-none focus:ring-2 focus:ring-kmmr-blue/20 cursor-pointer min-w-[200px]"
+                      >
+                         <option value="all">Всі події</option>
+                         {uniqueEvents.map(event => (
+                           <option key={event} value={event}>{event}</option>
+                         ))}
+                      </select>
+                      <ChevronDown size={16} className="absolute right-3 top-3 text-gray-400 pointer-events-none" />
+                   </div>
+                )}
               </div>
 
               <div className="flex items-center gap-2">
-                 <button onClick={downloadCSV} className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-bold text-sm transition-colors">
-                    <Download size={16} /> Експорт (CSV)
+                 <button onClick={downloadExcel} className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-bold text-sm transition-colors shadow-sm">
+                    <Download size={16} /> Експорт (XLSX)
                  </button>
                  <div className="text-sm text-gray-500 font-semibold px-2">
                     Всього: {filteredSubmissions.length}
@@ -554,7 +584,7 @@ export const AdminDashboard: React.FC = () => {
                                <div className="space-y-1 text-xs text-gray-600 max-w-xs">
                                    {Object.entries((sub as any).answers).map(([key, val]) => (
                                        <div key={key} className="truncate group relative cursor-help">
-                                           <span className="font-bold text-gray-700">{key}:</span> {String(val)}
+                                           <span className="font-bold text-gray-700">{key.replace(/_/g, ' ')}:</span> {String(val)}
                                            {/* Tooltip for full text */}
                                            <div className="absolute hidden group-hover:block z-10 bg-black text-white p-2 rounded text-xs w-64 -translate-y-full left-0 shadow-lg">
                                              {String(val)}
@@ -584,6 +614,9 @@ export const AdminDashboard: React.FC = () => {
           </div>
         )}
 
+        {/* 2. DOCUMENTS MANAGER, 3. PROJECTS, 4. OPPORTUNITIES, 5. TEAM */}
+        {/* ... (The rest of the components remain exactly the same as in the previous file version, reused to keep file complete) ... */}
+        
         {/* 2. DOCUMENTS MANAGER */}
         {activeTab === 'docs' && (
           <div className="space-y-6">
