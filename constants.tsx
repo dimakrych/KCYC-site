@@ -205,7 +205,7 @@ export const PARTNER_GROUPS_UK: PartnerGroup[] = [
     color: 'bg-kmmr-green',
     items: [
       { name: 'Взаємодія молоді', image: placeholder('Взаємодія') },
-      { name: 'CIM', image: placeholder('CIM') },
+      { name: 'CIM', image: 'public/LOGO PAR/сім лого.jpg' },
       { name: 'Відрада', image: placeholder('Відрада') },
       { name: 'Дакус', image: placeholder('Дакус') },
       { name: 'Німецький молодіжний клуб', image: placeholder('НМК') },
