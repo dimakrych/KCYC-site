@@ -13,6 +13,7 @@ import { AdminLogin } from './pages/AdminLogin';
 import { AdminDashboard } from './pages/AdminDashboard';
 import { LanguageProvider } from './context/LanguageContext';
 import { ThemeProvider } from './context/ThemeContext';
+import { AuthProvider, useAuth } from './context/AuthContext';
 
 // Component to scroll to top on route change
 const ScrollToTop = () => {
@@ -23,11 +24,15 @@ const ScrollToTop = () => {
   return null;
 };
 
-// Protected Route Component
+// Protected Route Component using AuthContext
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const isAdmin = localStorage.getItem('isAdmin') === 'true';
+  const { user, loading } = useAuth();
   
-  if (!isAdmin) {
+  if (loading) {
+    return <div className="min-h-screen flex items-center justify-center bg-gray-50">Loading...</div>;
+  }
+  
+  if (!user) {
     return <Navigate to="/login" replace />;
   }
   
@@ -45,34 +50,36 @@ const PublicLayout = ({ children }: { children: React.ReactNode }) => (
   </div>
 );
 
-const App: React.FC = () => {
+const App = () => {
   return (
     <LanguageProvider>
       <ThemeProvider>
-        <Router>
-          <ScrollToTop />
-          <Routes>
-            {/* Admin Routes (No Navbar/Footer) */}
-            <Route path="/login" element={<AdminLogin />} />
-            <Route 
-              path="/admin/dashboard" 
-              element={
-                <ProtectedRoute>
-                  <AdminDashboard />
-                </ProtectedRoute>
-              } 
-            />
+        <AuthProvider>
+          <Router>
+            <ScrollToTop />
+            <Routes>
+              {/* Admin Routes (No Navbar/Footer) */}
+              <Route path="/login" element={<AdminLogin />} />
+              <Route 
+                path="/admin/dashboard" 
+                element={
+                  <ProtectedRoute>
+                    <AdminDashboard />
+                  </ProtectedRoute>
+                } 
+              />
 
-            {/* Public Routes */}
-            <Route path="/" element={<PublicLayout><Home /></PublicLayout>} />
-            <Route path="/about" element={<PublicLayout><AboutSection /></PublicLayout>} />
-            <Route path="/team" element={<PublicLayout><TeamSection /></PublicLayout>} />
-            <Route path="/projects" element={<PublicLayout><ProjectsSection /></PublicLayout>} />
-            <Route path="/opportunities" element={<PublicLayout><OpportunitiesSection /></PublicLayout>} />
-            <Route path="/documents" element={<PublicLayout><DocumentsSection /></PublicLayout>} />
-            <Route path="/contacts" element={<PublicLayout><ContactsSection /></PublicLayout>} />
-          </Routes>
-        </Router>
+              {/* Public Routes */}
+              <Route path="/" element={<PublicLayout><Home /></PublicLayout>} />
+              <Route path="/about" element={<PublicLayout><AboutSection /></PublicLayout>} />
+              <Route path="/team" element={<PublicLayout><TeamSection /></PublicLayout>} />
+              <Route path="/projects" element={<PublicLayout><ProjectsSection /></PublicLayout>} />
+              <Route path="/opportunities" element={<PublicLayout><OpportunitiesSection /></PublicLayout>} />
+              <Route path="/documents" element={<PublicLayout><DocumentsSection /></PublicLayout>} />
+              <Route path="/contacts" element={<PublicLayout><ContactsSection /></PublicLayout>} />
+            </Routes>
+          </Router>
+        </AuthProvider>
       </ThemeProvider>
     </LanguageProvider>
   );

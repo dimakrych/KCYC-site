@@ -22,26 +22,31 @@ export interface ApplicationFormData {
   socialLink?: string;
 }
 
-// Helper to remove undefined values, as Firestore doesn't accept them
-const cleanData = (data: any) => {
-  const cleaned: any = {};
-  Object.keys(data).forEach(key => {
-    if (data[key] !== undefined) {
-      cleaned[key] = data[key];
-    } else {
-      cleaned[key] = ""; // Replace undefined with empty string
-    }
-  });
-  return cleaned;
+// Deep clean function to recursively remove undefined values
+const deepClean = (obj: any): any => {
+  if (Array.isArray(obj)) {
+    return obj.map(v => deepClean(v));
+  } else if (obj !== null && typeof obj === 'object') {
+    return Object.keys(obj).reduce((acc, key) => {
+      const value = obj[key];
+      if (value !== undefined) {
+        acc[key] = deepClean(value);
+      } else {
+        acc[key] = ""; // Replace undefined with empty string
+      }
+      return acc;
+    }, {} as any);
+  }
+  return obj;
 };
 
 // Функція відправки форми контактів
 export const submitContactForm = async (data: ContactFormData): Promise<{ success: boolean; message: string }> => {
   try {
-    const cleanedPayload = cleanData(data);
+    const cleanedPayload = deepClean(data);
     await addDoc(collection(db, "submissions"), {
       ...cleanedPayload,
-      formType: 'general_contact',
+      formType: 'general_contact', // Маркер типу
       status: 'new',
       createdAt: serverTimestamp()
     });
@@ -59,15 +64,13 @@ export const submitContactForm = async (data: ContactFormData): Promise<{ succes
 // Функція відправки форми на конкретну можливість
 export const submitApplicationForm = async (data: ApplicationFormData): Promise<{ success: boolean; message: string }> => {
   try {
-    const cleanedPayload = cleanData(data);
+    const cleanedPayload = deepClean(data);
     
-    // Ensure answers object is also clean
-    if (cleanedPayload.answers) {
-      cleanedPayload.answers = cleanData(cleanedPayload.answers);
-    }
-
-    await addDoc(collection(db, "applications"), {
+    // Змінено: пишемо в 'submissions' замість 'applications', щоб використовувати існуючі правила безпеки
+    // та бачити всі заявки в одній таблиці в адмінці.
+    await addDoc(collection(db, "submissions"), {
       ...cleanedPayload,
+      formType: 'opportunity_application', // Маркер типу
       status: 'new',
       createdAt: serverTimestamp()
     });

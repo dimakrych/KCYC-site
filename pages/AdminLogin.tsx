@@ -17,13 +17,18 @@ export const AdminLogin: React.FC = () => {
     setError('');
 
     try {
-      // Реальний вхід через Firebase
       await signInWithEmailAndPassword(auth, email, password);
-      localStorage.setItem('isAdmin', 'true'); // Для простоти роутингу
+      // We don't need to manually set localStorage for routing logic anymore 
+      // as AuthContext handles it, but we can set it for redundancy or other checks
+      localStorage.setItem('isAdmin', 'true'); 
       navigate('/admin/dashboard');
     } catch (err: any) {
       console.error(err);
-      setError('Невірний email або пароль. Перевірте консоль Firebase.');
+      if (err.code === 'auth/invalid-credential') {
+        setError('Невірний email або пароль.');
+      } else {
+        setError('Помилка входу: ' + err.message);
+      }
     } finally {
       setLoading(false);
     }

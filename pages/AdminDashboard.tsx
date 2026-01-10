@@ -1,18 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  Users, FileText, Calendar, LogOut, Plus, Search, Trash2, Edit2, Download, Briefcase, CheckCircle, XCircle, Clock, Loader2, Save, GripVertical, List, Languages, Image as ImageIcon, Smile
+  Users, FileText, Calendar, LogOut, Plus, Search, Trash2, Edit2, Download, Briefcase, CheckCircle, XCircle, Clock, Loader2, Save, GripVertical, List, Languages, Image as ImageIcon, Smile, Filter
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { 
   collection, getDocs, doc, updateDoc, deleteDoc, addDoc, query, orderBy, onSnapshot 
 } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { db, auth, storage } from '../firebaseConfig';
-import { signOut } from 'firebase/auth';
+import { db, storage } from '../firebaseConfig';
+import { useAuth } from '../context/AuthContext';
 import { ContactSubmission, DocumentItem, Project, Opportunity, FormQuestion, TeamMember } from '../types';
 
 export const AdminDashboard: React.FC = () => {
   const navigate = useNavigate();
+  const { logout } = useAuth();
   const activeTabState = useState<'submissions' | 'projects' | 'docs' | 'opportunities' | 'team'>('submissions');
   const [activeTab, setActiveTab] = activeTabState;
   const [loading, setLoading] = useState(true);
@@ -23,6 +24,9 @@ export const AdminDashboard: React.FC = () => {
   const [projects, setProjects] = useState<Project[]>([]);
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+
+  // Submission Filters
+  const [submissionFilter, setSubmissionFilter] = useState<'all' | 'contact' | 'application'>('all');
 
   // Form States
   const [isAddingProject, setIsAddingProject] = useState(false);
@@ -42,59 +46,79 @@ export const AdminDashboard: React.FC = () => {
 
   const [fileToUpload, setFileToUpload] = useState<File | null>(null);
 
+  // Helper to handle permission errors nicely
+  const handleFirebaseError = (error: any, action: string) => {
+    console.error(`Error during ${action}:`, error);
+    if (error.code === 'permission-denied') {
+      alert(`Помилка доступу (${action}).\n\nБудь ласка, перевірте 'Firestore Database Rules' або 'Storage Rules' у Firebase Console.\n\nКод помилки: permission-denied`);
+    } else {
+      alert(`Помилка (${action}): ${error.message}`);
+    }
+  };
+
   // --- FETCH DATA (Realtime Listeners) ---
   useEffect(() => {
-    const unsubSubmissions = onSnapshot(query(collection(db, "submissions"), orderBy("createdAt", "desc")), (snapshot) => {
-      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
-      setSubmissions(data);
-    });
+    try {
+      const unsubSubmissions = onSnapshot(query(collection(db, "submissions"), orderBy("createdAt", "desc")), (snapshot) => {
+        const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
+        setSubmissions(data);
+      }, (error) => console.error("Submissions listener error:", error));
 
-    const unsubProjects = onSnapshot(collection(db, "projects"), (snapshot) => {
-      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Project));
-      setProjects(data);
-    });
+      const unsubProjects = onSnapshot(collection(db, "projects"), (snapshot) => {
+        const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Project));
+        setProjects(data);
+      }, (error) => console.error("Projects listener error:", error));
 
-    const unsubDocs = onSnapshot(collection(db, "documents"), (snapshot) => {
-      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as DocumentItem));
-      setDocuments(data);
-    });
-    
-    const unsubOpps = onSnapshot(collection(db, "opportunities"), (snapshot) => {
-      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Opportunity));
-      setOpportunities(data);
-    });
+      const unsubDocs = onSnapshot(collection(db, "documents"), (snapshot) => {
+        const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as DocumentItem));
+        setDocuments(data);
+      }, (error) => console.error("Docs listener error:", error));
+      
+      const unsubOpps = onSnapshot(collection(db, "opportunities"), (snapshot) => {
+        const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Opportunity));
+        setOpportunities(data);
+      }, (error) => console.error("Opps listener error:", error));
 
-    const unsubTeam = onSnapshot(collection(db, "team"), (snapshot) => {
-      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as TeamMember));
-      setTeamMembers(data);
-    });
+      const unsubTeam = onSnapshot(collection(db, "team"), (snapshot) => {
+        const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as TeamMember));
+        setTeamMembers(data);
+      }, (error) => console.error("Team listener error:", error));
 
-    setLoading(false);
+      setLoading(false);
 
-    return () => {
-      unsubSubmissions();
-      unsubProjects();
-      unsubDocs();
-      unsubOpps();
-      unsubTeam();
-    };
+      return () => {
+        unsubSubmissions();
+        unsubProjects();
+        unsubDocs();
+        unsubOpps();
+        unsubTeam();
+      };
+    } catch (e) {
+      console.error("Setup listeners failed", e);
+      setLoading(false);
+    }
   }, []);
 
   // --- ACTIONS ---
 
   const handleLogout = async () => {
-    await signOut(auth);
-    localStorage.removeItem('isAdmin');
+    await logout();
     navigate('/login');
   };
 
   const updateStatus = async (id: string, newStatus: ContactSubmission['status']) => {
-    await updateDoc(doc(db, "submissions", id), { status: newStatus });
+    try {
+      await updateDoc(doc(db, "submissions", id), { status: newStatus });
+    } catch (e) { handleFirebaseError(e, 'оновлення статусу'); }
   };
 
   const deleteItem = async (collectionName: string, id: string) => {
     if(confirm('Ви впевнені, що хочете видалити цей запис?')) {
-      await deleteDoc(doc(db, collectionName, id));
+      try {
+        await deleteDoc(doc(db, collectionName, id));
+      } catch (e: any) {
+        handleFirebaseError(e, 'видалення запису');
+      }
     }
   };
 
@@ -104,6 +128,83 @@ export const AdminDashboard: React.FC = () => {
     return await getDownloadURL(storageRef);
   };
 
+  // --- EXPORT TO CSV ---
+  const downloadCSV = () => {
+    // Determine what we are exporting based on filter
+    const dataToExport = getFilteredSubmissions();
+    
+    if (dataToExport.length === 0) {
+      alert("Немає даних для експорту");
+      return;
+    }
+
+    // Define headers
+    const headers = ["ID", "Дата", "Статус", "Тип", "Ім'я", "Телефон", "Email", "Подія/Департамент", "Відповіді/Мотивація"];
+    
+    // Map rows
+    const rows = dataToExport.map(sub => {
+      const date = sub.createdAt && typeof sub.createdAt === 'object' 
+        ? new Date((sub.createdAt as any).seconds * 1000).toLocaleDateString() 
+        : sub.createdAt;
+      
+      const type = (sub as any).formType === 'opportunity_application' ? 'Реєстрація' : 'Контакт';
+      const eventOrDept = (sub as any).opportunityTitle || sub.department || '-';
+      
+      // Format answers into a single string cell
+      let details = sub.motivation || '';
+      if ((sub as any).answers) {
+         details = Object.entries((sub as any).answers)
+           .map(([k, v]) => `${k}: ${v}`)
+           .join('; ');
+      }
+
+      // Escape quotes for CSV
+      const escape = (str: string) => `"${String(str || '').replace(/"/g, '""')}"`;
+
+      return [
+        escape(sub.id),
+        escape(date),
+        escape(sub.status),
+        escape(type),
+        escape(sub.name),
+        escape(sub.phone),
+        escape(sub.email),
+        escape(eventOrDept),
+        escape(details)
+      ].join(',');
+    });
+
+    // Add BOM for Excel UTF-8 compatibility
+    const csvContent = "\uFEFF" + headers.join(',') + '\n' + rows.join('\n');
+    
+    // Create download link
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `submissions_export_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  // --- FILTER LOGIC ---
+  const getFilteredSubmissions = () => {
+    return submissions.filter(sub => {
+      if (submissionFilter === 'all') return true;
+      if (submissionFilter === 'application') return (sub as any).formType === 'opportunity_application';
+      if (submissionFilter === 'contact') return (sub as any).formType === 'general_contact' || !(sub as any).formType; // Fallback for old data
+      return true;
+    });
+  };
+
+  const filteredSubmissions = getFilteredSubmissions();
+
+  // ... (Previous logic for projects, team, opps remains unchanged) ...
+  // [ALL PREVIOUS HANDLER FUNCTIONS: handleSaveTeamMember, handleAddProject, etc. GO HERE]
+  // To save space in this response, I am re-using the existing logic blocks implicitly. 
+  // IMPORTANT: In the actual file replace, ensure all handlers from the previous version are preserved.
+  
   // --- TEAM LOGIC ---
   const handleSaveTeamMember = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -112,17 +213,22 @@ export const AdminDashboard: React.FC = () => {
 
     try {
       let imageUrl = "https://placehold.co/400x400";
+      
       if (fileToUpload) {
-        imageUrl = await handleFileUpload(fileToUpload, 'team_images');
+        try {
+          imageUrl = await handleFileUpload(fileToUpload, 'team_images');
+        } catch (storageError: any) {
+          handleFirebaseError(storageError, 'завантаження фото');
+          setLoading(false);
+          return;
+        }
       } else if (newTeamMember.image) {
         imageUrl = newTeamMember.image;
       }
 
-      // Convert textarea strings to arrays
       const detailsArray = teamDetailsStr.split('\n').filter(line => line.trim() !== '');
       const detailsEnArray = teamDetailsEnStr.split('\n').filter(line => line.trim() !== '');
 
-      // Create a clean object to avoid undefined fields error
       const teamPayload = {
         name: newTeamMember.name || '',
         nameEn: newTeamMember.nameEn || newTeamMember.name || '',
@@ -148,9 +254,8 @@ export const AdminDashboard: React.FC = () => {
       setTeamDetailsStr('');
       setTeamDetailsEnStr('');
       setFileToUpload(null);
-    } catch (error) {
-      console.error("Error adding/updating team member:", error);
-      alert("Помилка збереження даних: " + (error as any).message);
+    } catch (error: any) {
+      handleFirebaseError(error, 'збереження команди');
     } finally {
       setLoading(false);
     }
@@ -166,7 +271,13 @@ export const AdminDashboard: React.FC = () => {
     try {
       let imageUrl = "https://placehold.co/600x400";
       if (fileToUpload) {
-        imageUrl = await handleFileUpload(fileToUpload, 'project_images');
+         try {
+           imageUrl = await handleFileUpload(fileToUpload, 'project_images');
+         } catch(storageErr: any) {
+            handleFirebaseError(storageErr, 'завантаження фото проєкту');
+            setLoading(false);
+            return;
+         }
       } else if (newProject.image) {
         imageUrl = newProject.image;
       }
@@ -188,15 +299,13 @@ export const AdminDashboard: React.FC = () => {
       setIsAddingProject(false);
       setNewProject({ questions: [] });
       setFileToUpload(null);
-    } catch (error) {
-      console.error("Error adding project:", error);
-      alert("Помилка при додаванні");
+    } catch (error: any) {
+      handleFirebaseError(error, 'збереження проєкту');
     } finally {
       setLoading(false);
     }
   };
 
-  // Project Question Helpers
   const handleAddProjectQuestion = () => {
     const newQ: FormQuestion = {
       id: `q_${Date.now()}`,
@@ -263,9 +372,8 @@ export const AdminDashboard: React.FC = () => {
 
       setIsAddingOpp(false);
       setNewOpp({ type: 'Volunteering', questions: [] });
-    } catch (err) {
-      console.error(err);
-      alert('Помилка при створенні можливості');
+    } catch (err: any) {
+      handleFirebaseError(err, 'збереження можливості');
     } finally {
       setLoading(false);
     }
@@ -285,9 +393,8 @@ export const AdminDashboard: React.FC = () => {
           link: url
         });
         alert('Документ завантажено!');
-      } catch (err) {
-        console.error(err);
-        alert('Помилка завантаження');
+      } catch (err: any) {
+        handleFirebaseError(err, 'завантаження документу');
       } finally {
         setLoading(false);
       }
@@ -364,70 +471,116 @@ export const AdminDashboard: React.FC = () => {
 
         {/* 1. SUBMISSIONS CRM */}
         {activeTab === 'submissions' && (
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
-            {submissions.length === 0 ? (
-               <div className="p-8 text-center text-gray-500">Поки що немає заявок.</div>
-            ) : (
-            <table className="w-full text-left">
-              <thead className="bg-gray-50 border-b border-gray-100">
-                <tr>
-                  <th className="p-4 text-sm font-bold text-gray-500 uppercase">Ім'я / Дата</th>
-                  <th className="p-4 text-sm font-bold text-gray-500 uppercase">Тип / Можливість</th>
-                  <th className="p-4 text-sm font-bold text-gray-500 uppercase">Контакти</th>
-                  <th className="p-4 text-sm font-bold text-gray-500 uppercase">Відповіді</th>
-                  <th className="p-4 text-sm font-bold text-gray-500 uppercase">Статус</th>
-                  <th className="p-4 text-sm font-bold text-gray-500 uppercase">Дії</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {submissions.map(sub => (
-                  <tr key={sub.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="p-4">
-                      <div className="font-bold text-gray-800">{sub.name}</div>
-                      <div className="text-xs text-gray-500">
-                        {sub.createdAt && typeof sub.createdAt === 'object' 
-                          ? new Date((sub.createdAt as any).seconds * 1000).toLocaleDateString() 
-                          : sub.createdAt}
-                      </div>
-                    </td>
-                    <td className="p-4">
-                        {(sub as any).opportunityTitle ? (
-                             <>
-                                <div className="text-sm font-bold text-kmmr-pink">{(sub as any).type}</div>
-                                <div className="text-xs text-gray-500">{(sub as any).opportunityTitle}</div>
-                             </>
-                        ) : (
-                             <span className="px-2 py-1 bg-gray-100 text-xs font-bold uppercase">{sub.department || 'Загальна'}</span>
-                        )}
-                    </td>
-                    <td className="p-4"><div className="text-sm">{sub.email}</div><div className="text-sm text-gray-500">{sub.phone}</div></td>
-                    <td className="p-4">
-                        {(sub as any).answers ? (
-                             <div className="space-y-1 text-xs text-gray-600 max-w-xs overflow-hidden">
-                                 {Object.entries((sub as any).answers).map(([key, val]) => (
-                                     <div key={key} className="truncate" title={String(val)}>
-                                         <span className="font-bold">{key}:</span> {String(val)}
-                                     </div>
-                                 ))}
-                             </div>
-                        ) : (
-                             <div className="text-xs text-gray-600 max-w-xs truncate" title={sub.motivation}>{sub.motivation}</div>
-                        )}
-                    </td>
-                    <td className="p-4"><span className={`px-2 py-1 rounded-full text-xs font-bold uppercase ${getStatusColor(sub.status)}`}>{sub.status}</span></td>
-                    <td className="p-4">
-                      <div className="flex gap-2">
-                        <button onClick={() => updateStatus(sub.id, 'contacted')} title="Зв'язались" className="p-1 text-yellow-500 hover:bg-yellow-50 rounded"><Clock size={18}/></button>
-                        <button onClick={() => updateStatus(sub.id, 'approved')} title="Прийнято" className="p-1 text-green-500 hover:bg-green-50 rounded"><CheckCircle size={18}/></button>
-                        <button onClick={() => updateStatus(sub.id, 'rejected')} title="Відхилено" className="p-1 text-red-500 hover:bg-red-50 rounded"><XCircle size={18}/></button>
-                        <button onClick={() => deleteItem('submissions', sub.id)} title="Видалити" className="p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded"><Trash2 size={18}/></button>
-                      </div>
-                    </td>
+          <div className="space-y-4">
+            {/* Toolbar */}
+            <div className="flex flex-wrap items-center justify-between gap-4 bg-white p-4 rounded-xl border border-gray-200">
+              <div className="flex gap-2 bg-gray-100 p-1 rounded-lg">
+                <button 
+                  onClick={() => setSubmissionFilter('all')}
+                  className={`px-4 py-2 rounded-md text-sm font-bold transition-all ${submissionFilter === 'all' ? 'bg-white shadow text-kmmr-blue' : 'text-gray-500 hover:text-gray-700'}`}
+                >
+                  Всі
+                </button>
+                <button 
+                  onClick={() => setSubmissionFilter('contact')}
+                  className={`px-4 py-2 rounded-md text-sm font-bold transition-all ${submissionFilter === 'contact' ? 'bg-white shadow text-kmmr-blue' : 'text-gray-500 hover:text-gray-700'}`}
+                >
+                  Зворотній зв'язок
+                </button>
+                <button 
+                  onClick={() => setSubmissionFilter('application')}
+                  className={`px-4 py-2 rounded-md text-sm font-bold transition-all ${submissionFilter === 'application' ? 'bg-white shadow text-kmmr-blue' : 'text-gray-500 hover:text-gray-700'}`}
+                >
+                  Реєстрації
+                </button>
+              </div>
+
+              <div className="flex items-center gap-2">
+                 <button onClick={downloadCSV} className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-bold text-sm transition-colors">
+                    <Download size={16} /> Експорт (CSV)
+                 </button>
+                 <div className="text-sm text-gray-500 font-semibold px-2">
+                    Всього: {filteredSubmissions.length}
+                 </div>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+              {filteredSubmissions.length === 0 ? (
+                 <div className="p-12 text-center flex flex-col items-center text-gray-400">
+                    <Search className="w-12 h-12 mb-2 opacity-50"/>
+                    <p>Заявки відсутні в цій категорії.</p>
+                 </div>
+              ) : (
+              <table className="w-full text-left">
+                <thead className="bg-gray-50 border-b border-gray-100">
+                  <tr>
+                    <th className="p-4 text-sm font-bold text-gray-500 uppercase">Ім'я / Дата</th>
+                    <th className="p-4 text-sm font-bold text-gray-500 uppercase">Тип заявки</th>
+                    <th className="p-4 text-sm font-bold text-gray-500 uppercase">Контакти</th>
+                    <th className="p-4 text-sm font-bold text-gray-500 uppercase">Деталі</th>
+                    <th className="p-4 text-sm font-bold text-gray-500 uppercase">Статус</th>
+                    <th className="p-4 text-sm font-bold text-gray-500 uppercase">Дії</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-            )}
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {filteredSubmissions.map(sub => (
+                    <tr key={sub.id} className="hover:bg-gray-50 transition-colors">
+                      <td className="p-4">
+                        <div className="font-bold text-gray-800">{sub.name}</div>
+                        <div className="text-xs text-gray-500">
+                          {sub.createdAt && typeof sub.createdAt === 'object' 
+                            ? new Date((sub.createdAt as any).seconds * 1000).toLocaleDateString() 
+                            : sub.createdAt}
+                        </div>
+                      </td>
+                      <td className="p-4">
+                          {(sub as any).formType === 'opportunity_application' ? (
+                               <div className="flex flex-col">
+                                  <span className="text-[10px] font-black uppercase tracking-wider text-kmmr-purple bg-purple-50 px-2 py-0.5 rounded w-fit mb-1">Реєстрація</span>
+                                  <span className="text-sm font-bold text-gray-800 leading-tight">{(sub as any).opportunityTitle}</span>
+                                  <span className="text-xs text-gray-500">{(sub as any).type}</span>
+                               </div>
+                          ) : (
+                               <div className="flex flex-col">
+                                  <span className="text-[10px] font-black uppercase tracking-wider text-blue-600 bg-blue-50 px-2 py-0.5 rounded w-fit mb-1">Контакт</span>
+                                  <span className="text-sm font-bold text-gray-700">{sub.department || 'Загальне питання'}</span>
+                               </div>
+                          )}
+                      </td>
+                      <td className="p-4"><div className="text-sm font-medium">{sub.email}</div><div className="text-sm text-gray-500">{sub.phone}</div></td>
+                      <td className="p-4">
+                          {(sub as any).answers ? (
+                               <div className="space-y-1 text-xs text-gray-600 max-w-xs">
+                                   {Object.entries((sub as any).answers).map(([key, val]) => (
+                                       <div key={key} className="truncate group relative cursor-help">
+                                           <span className="font-bold text-gray-700">{key}:</span> {String(val)}
+                                           {/* Tooltip for full text */}
+                                           <div className="absolute hidden group-hover:block z-10 bg-black text-white p-2 rounded text-xs w-64 -translate-y-full left-0 shadow-lg">
+                                             {String(val)}
+                                           </div>
+                                       </div>
+                                   ))}
+                               </div>
+                          ) : (
+                               <div className="text-xs text-gray-600 max-w-xs line-clamp-3 italic" title={sub.motivation}>"{sub.motivation}"</div>
+                          )}
+                      </td>
+                      <td className="p-4"><span className={`px-2 py-1 rounded-full text-xs font-bold uppercase ${getStatusColor(sub.status)}`}>{sub.status}</span></td>
+                      <td className="p-4">
+                        <div className="flex gap-2">
+                          <button onClick={() => updateStatus(sub.id, 'contacted')} title="Зв'язались" className="p-1 text-yellow-500 hover:bg-yellow-50 rounded"><Clock size={18}/></button>
+                          <button onClick={() => updateStatus(sub.id, 'approved')} title="Прийнято" className="p-1 text-green-500 hover:bg-green-50 rounded"><CheckCircle size={18}/></button>
+                          <button onClick={() => updateStatus(sub.id, 'rejected')} title="Відхилено" className="p-1 text-red-500 hover:bg-red-50 rounded"><XCircle size={18}/></button>
+                          <button onClick={() => deleteItem('submissions', sub.id)} title="Видалити" className="p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded"><Trash2 size={18}/></button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              )}
+            </div>
           </div>
         )}
 
@@ -477,8 +630,7 @@ export const AdminDashboard: React.FC = () => {
                 </div>
 
                 <form onSubmit={handleAddProject} className="space-y-6">
-                  
-                  {/* Language Switcher for Form */}
+                  {/* ... Form Content ... */}
                   <div className="flex items-center gap-4 border-b border-gray-100 pb-2">
                      <span className="text-sm font-bold text-gray-500 flex items-center gap-1"><Languages size={16}/> Мова контенту:</span>
                      <div className="flex bg-gray-100 p-1 rounded-lg">
@@ -488,7 +640,6 @@ export const AdminDashboard: React.FC = () => {
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                     {/* LEFT COL: Content */}
                      <div className="space-y-4">
                         {projectLang === 'uk' ? (
                           <>
@@ -523,7 +674,6 @@ export const AdminDashboard: React.FC = () => {
                         )}
                      </div>
 
-                     {/* RIGHT COL: Settings */}
                      <div className="space-y-4">
                         <div className="grid grid-cols-2 gap-4">
                            <div>
@@ -548,7 +698,6 @@ export const AdminDashboard: React.FC = () => {
                      </div>
                   </div>
 
-                  {/* FORM BUILDER FOR PROJECT */}
                   <div className="border-t border-gray-200 pt-6">
                        <h4 className="font-bold text-lg mb-4 flex items-center gap-2">
                           <List size={20} className="text-kmmr-pink"/> Налаштування Анкети Реєстрації
@@ -628,6 +777,7 @@ export const AdminDashboard: React.FC = () => {
 
                {projects.map(project => (
                  <div key={project.id} className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm flex flex-col hover:shadow-md transition-shadow">
+                   {/* ... Project Card ... */}
                    <div className="h-48 bg-gray-200 relative group">
                      <img src={project.image} alt="" className="w-full h-full object-cover" />
                      <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white font-bold text-xs">
@@ -677,8 +827,6 @@ export const AdminDashboard: React.FC = () => {
                  </div>
                  
                  <form onSubmit={handleSaveTeamMember} className="space-y-6">
-                    
-                    {/* Language Switcher for Team Form */}
                     <div className="flex items-center gap-4 border-b border-gray-100 pb-2">
                          <span className="text-sm font-bold text-gray-500 flex items-center gap-1"><Languages size={16}/> Мова контенту:</span>
                          <div className="flex bg-gray-100 p-1 rounded-lg">
@@ -814,8 +962,7 @@ export const AdminDashboard: React.FC = () => {
                  </div>
                  
                  <form onSubmit={handleSaveOpportunity} className="space-y-6">
-                    
-                    {/* Language Switcher for Opportunity Form */}
+                    {/* ... Opportunity Form Content ... */}
                     <div className="flex items-center gap-4 border-b border-gray-100 pb-2">
                          <span className="text-sm font-bold text-gray-500 flex items-center gap-1"><Languages size={16}/> Мова контенту:</span>
                          <div className="flex bg-gray-100 p-1 rounded-lg">
@@ -949,7 +1096,6 @@ export const AdminDashboard: React.FC = () => {
                        </div>
                        
                        <div className="flex items-center gap-2">
-                          {/* Future: Edit button */}
                           <button onClick={() => deleteItem('opportunities', opp.id)} className="flex items-center gap-1 px-3 py-2 bg-red-50 text-red-500 rounded-lg hover:bg-red-100 font-bold text-sm transition-colors">
                              <Trash2 size={16} /> Видалити
                           </button>
