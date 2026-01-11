@@ -5,9 +5,9 @@ import { DonationModal } from './DonationModal';
 import { Logo } from './Logo';
 import { subscribeToNewsletter } from '../services/api';
 
-const TikTokIcon = ({ className }: { className?: string }) => (
+const TelegramIcon = ({ className }: { className?: string }) => (
   <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
-    <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.1z"/>
+    <path d="M20.665 3.717l-17.73 6.837c-1.21.486-1.203 1.161-.222 1.462l4.552 1.42l10.532-6.645c.498-.303.953-.14.579.192l-8.533 7.701h-.002l.002.001l-.314 4.692c.46 0 .663-.211.921-.46l2.211-2.15l4.599 3.397c.848.467 1.457.227 1.668-.785l3.019-14.228c.309-1.239-.473-1.8-1.282-1.434z"/>
   </svg>
 );
 
@@ -99,16 +99,16 @@ export const Footer: React.FC = () => {
             <div>
               <h4 className="text-lg font-bold uppercase tracking-wider mb-4">{t('footer.follow')}</h4>
               <div className="flex gap-4">
-                <a href="#" className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center hover:bg-kmmr-pink transition-all duration-300 transform hover:-translate-y-1">
+                <a href="https://www.instagram.com/kyiv.city.yc.nycu/" target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center hover:bg-kmmr-pink transition-all duration-300 transform hover:-translate-y-1">
                   <Instagram className="w-5 h-5" />
                 </a>
-                <a href="#" className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center hover:bg-blue-600 transition-all duration-300 transform hover:-translate-y-1">
+                <a href="https://www.facebook.com/kyiv.city.yc.nycu/" target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center hover:bg-blue-600 transition-all duration-300 transform hover:-translate-y-1">
                   <Facebook className="w-5 h-5" />
                 </a>
-                <a href="#" className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center hover:bg-black transition-all duration-300 transform hover:-translate-y-1">
-                  <TikTokIcon className="w-5 h-5" />
+                <a href="https://t.me/Kyiv_City_Youth_Council" target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center hover:bg-blue-500 transition-all duration-300 transform hover:-translate-y-1">
+                  <TelegramIcon className="w-5 h-5" />
                 </a>
-                <a href="#" className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center hover:bg-red-600 transition-all duration-300 transform hover:-translate-y-1">
+                <a href="https://www.youtube.com/@kyiv_city_youth_council" target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center hover:bg-red-600 transition-all duration-300 transform hover:-translate-y-1">
                   <Youtube className="w-5 h-5" />
                 </a>
               </div>
