@@ -42,7 +42,7 @@ export const DocumentsSection: React.FC = () => {
   }, [language]);
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 pb-20 transition-colors duration-300">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 pb-20 transition-colors duration-300 overflow-x-hidden">
       {/* Visual Header */}
       <div className="bg-kmmr-blue dark:bg-gray-900 text-white py-16 relative overflow-hidden transition-colors">
         <div className="absolute top-0 right-0 w-64 h-64 bg-kmmr-green rounded-full blur-3xl opacity-20 -translate-y-10 translate-x-10"></div>
@@ -84,11 +84,11 @@ export const DocumentsSection: React.FC = () => {
                       <FileText size={24} />
                     </div>
                     
-                    <div className="flex-grow">
-                      <h3 className="font-bold text-xl text-gray-800 dark:text-gray-100 mb-2 group-hover:text-kmmr-blue dark:group-hover:text-blue-300 transition-colors">
+                    <div className="flex-grow min-w-0">
+                      <h3 className="font-bold text-xl text-gray-800 dark:text-gray-100 mb-2 group-hover:text-kmmr-blue dark:group-hover:text-blue-300 transition-colors break-words">
                         {doc.title}
                       </h3>
-                      <div className="flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400 mb-4">
+                      <div className="flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400 mb-4 flex-wrap">
                         <span className="font-semibold bg-gray-200 dark:bg-gray-600 px-2 py-0.5 rounded text-gray-600 dark:text-gray-300">{doc.type}</span>
                         <span>{doc.date}</span>
                         {doc.size && <span>{doc.size}</span>}
