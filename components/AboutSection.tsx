@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { SDGS_UK, SDGS_EN, PARTNER_GROUPS_UK, PARTNER_GROUPS_EN, TIMELINE_EVENTS_UK, TIMELINE_EVENTS_EN } from '../constants';
 import { Target, Flag, Users, HeartHandshake } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
-import { collection, getDocs, query, orderBy } from 'firebase/firestore';
+import { collection, query, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 import { PartnerItem, PartnerType } from '../types';
 
@@ -10,49 +10,52 @@ export const AboutSection: React.FC = () => {
   const { language, t } = useLanguage();
   const [fetchedPartners, setFetchedPartners] = useState<PartnerItem[]>([]);
   const [fetchedPartnerTypes, setFetchedPartnerTypes] = useState<PartnerType[]>([]);
-  const [loadingPartners, setLoadingPartners] = useState(true);
   
   const sdgs = language === 'uk' ? SDGS_UK : SDGS_EN;
   const staticPartnerGroups = language === 'uk' ? PARTNER_GROUPS_UK : PARTNER_GROUPS_EN;
   const timeline = language === 'uk' ? TIMELINE_EVENTS_UK : TIMELINE_EVENTS_EN;
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        // Fetch Partners
-        const qPartners = query(collection(db, "partners"));
-        const snapshotPartners = await getDocs(qPartners);
-        const dataPartners = snapshotPartners.docs.map(doc => ({ id: doc.id, ...doc.data() } as PartnerItem));
-        dataPartners.sort((a,b) => {
-           const orderA = a.order !== undefined ? a.order : 999;
-           const orderB = b.order !== undefined ? b.order : 999;
-           return orderA - orderB;
-        });
-        setFetchedPartners(dataPartners);
+    // Realtime listener for Partners
+    const unsubPartners = onSnapshot(collection(db, "partners"), (snapshot) => {
+      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as PartnerItem));
+      // Sort by order
+      data.sort((a,b) => {
+         const orderA = a.order !== undefined ? a.order : 999;
+         const orderB = b.order !== undefined ? b.order : 999;
+         return orderA - orderB;
+      });
+      setFetchedPartners(data);
+    }, (error) => {
+      console.error("Error watching partners:", error);
+    });
 
-        // Fetch Partner Types
-        const qTypes = query(collection(db, "partner_types"));
-        const snapshotTypes = await getDocs(qTypes);
-        const dataTypes = snapshotTypes.docs.map(doc => ({ id: doc.id, ...doc.data() } as PartnerType));
-        dataTypes.sort((a,b) => {
-           const orderA = a.order !== undefined ? a.order : 999;
-           const orderB = b.order !== undefined ? b.order : 999;
-           return orderA - orderB;
-        });
-        setFetchedPartnerTypes(dataTypes);
+    // Realtime listener for Partner Types
+    const unsubTypes = onSnapshot(collection(db, "partner_types"), (snapshot) => {
+      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as PartnerType));
+      data.sort((a,b) => {
+         const orderA = a.order !== undefined ? a.order : 999;
+         const orderB = b.order !== undefined ? b.order : 999;
+         return orderA - orderB;
+      });
+      setFetchedPartnerTypes(data);
+    }, (error) => {
+      console.error("Error watching partner types:", error);
+    });
 
-      } catch (error) {
-        console.error("Error fetching partner data:", error);
-      } finally {
-        setLoadingPartners(false);
-      }
+    return () => {
+      unsubPartners();
+      unsubTypes();
     };
-    fetchData();
   }, []);
 
   const getPartnerName = (p: PartnerItem) => language === 'uk' ? p.name : (p.nameEn || p.name);
   const getTypeName = (pt: PartnerType) => language === 'uk' ? pt.name : (pt.nameEn || pt.name);
   const getTypeDesc = (pt: PartnerType) => language === 'uk' ? pt.description : (pt.descriptionEn || pt.description);
+
+  // Helper to determine if we should show static data or dynamic data
+  // We show dynamic data if ANY types are defined in the database.
+  const showDynamic = fetchedPartnerTypes.length > 0;
 
   return (
     <div className="space-y-20 py-16 overflow-x-hidden dark:bg-gray-950 transition-colors duration-300">
@@ -186,12 +189,13 @@ export const AboutSection: React.FC = () => {
           {/* Logic: Render sections based on fetchedPartnerTypes. 
               If no types exist in DB (first load), fallback to staticPartnerGroups */}
           
-          {(fetchedPartnerTypes.length > 0 ? fetchedPartnerTypes : []).map((type) => {
+          {showDynamic ? (
+            fetchedPartnerTypes.map((type) => {
              const groupItems = fetchedPartners.filter(p => p.type === type.id);
              if (groupItems.length === 0) return null;
 
              return (
-              <div key={type.id} className="relative">
+              <div key={type.id} className="relative animate-fade-in-up">
                 {/* Group Header */}
                 <div className="flex items-center gap-4 mb-8">
                   <div className="p-3 rounded-lg text-white flex items-center justify-center w-12 h-12 shrink-0" style={{ backgroundColor: type.color }}>
@@ -252,10 +256,9 @@ export const AboutSection: React.FC = () => {
                 </div>
               </div>
             );
-          })}
-
-          {/* Fallback for static data only if no DB types exist (initial setup) */}
-          {fetchedPartnerTypes.length === 0 && staticPartnerGroups.map((group) => {
+          })) : (
+            /* Fallback for static data only if no DB types exist (initial setup) */
+            staticPartnerGroups.map((group) => {
              // Basic static render
              return (
               <div key={group.id} className="relative">
@@ -282,7 +285,7 @@ export const AboutSection: React.FC = () => {
                 </div>
               </div>
             );
-          })}
+          }))}
         </div>
       </div>
 
