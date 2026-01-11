@@ -41,11 +41,8 @@ export const Footer: React.FC = () => {
           
           {/* Column 1: Info */}
           <div className="space-y-4">
-            <div className="flex items-center gap-3 mb-4">
-              <Logo className="h-16" />
-              <h3 className="text-2xl font-bold text-kmmr-green">
-                {language === 'en' ? 'KCYC' : 'КММР'}
-              </h3>
+            <div className="mb-4">
+              <Logo className="h-16" forceTheme="dark" />
             </div>
             <p className="text-gray-300 text-sm leading-relaxed">
               {t('footer.desc')}
