@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { PROJECTS_UK, PROJECTS_EN } from '../constants';
 import { ExternalLink, Calendar, Loader2, X, ArrowRight, Clock } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
-import { collection, getDocs, query } from 'firebase/firestore';
+import { collection, query, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 import { Project, Opportunity } from '../types';
 import { Modal } from './ui/Modal';
@@ -15,42 +15,49 @@ export const ProjectsSection: React.FC = () => {
   
   // UI States
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
-  
-  // FIX: Store the specific opportunity for the application modal separately.
   const [applicationOpp, setApplicationOpp] = useState<Opportunity | null>(null);
 
-  // Fetch projects from Firebase
+  // Fetch projects from Firebase with Realtime Listener
   useEffect(() => {
-    const fetchProjects = async () => {
-      try {
-        const q = query(collection(db, "projects"));
-        const querySnapshot = await getDocs(q);
-        const fetchedProjects: Project[] = querySnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        } as Project));
-        
-        // If DB has projects, use them. Otherwise fallback to static.
-        let displayProjects = fetchedProjects.length > 0 ? fetchedProjects : (language === 'uk' ? PROJECTS_UK : PROJECTS_EN);
+    setLoading(true);
+    const q = query(collection(db, "projects"));
+    
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const fetchedProjects: Project[] = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      } as Project));
+      
+      // Decide whether to use DB data or Static Fallback
+      let displayProjects = fetchedProjects.length > 0 ? fetchedProjects : (language === 'uk' ? PROJECTS_UK : PROJECTS_EN);
 
-        // Sorting: Nearest deadline first. Projects without deadline go last.
-        displayProjects.sort((a, b) => {
-           const dateA = a.deadline ? new Date(a.deadline).getTime() : Infinity;
-           const dateB = b.deadline ? new Date(b.deadline).getTime() : Infinity;
-           return dateA - dateB;
-        });
+      // HYBRID SORTING:
+      // 1. Priority: Manual Order (from Drag and Drop)
+      // 2. Fallback: Deadline (Nearest first)
+      displayProjects.sort((a, b) => {
+         const orderA = a.order !== undefined ? a.order : 9999;
+         const orderB = b.order !== undefined ? b.order : 9999;
+         
+         // If orders are distinctly different (and not default), obey order
+         if (orderA !== orderB) {
+            return orderA - orderB;
+         }
 
-        setProjects(displayProjects);
+         // Otherwise sort by deadline
+         const dateA = a.deadline ? new Date(a.deadline).getTime() : Infinity;
+         const dateB = b.deadline ? new Date(b.deadline).getTime() : Infinity;
+         return dateA - dateB;
+      });
 
-      } catch (error) {
-        console.warn("Error fetching projects:", error);
-        setProjects(language === 'uk' ? PROJECTS_UK : PROJECTS_EN);
-      } finally {
-        setLoading(false);
-      }
-    };
+      setProjects(displayProjects);
+      setLoading(false);
+    }, (error) => {
+      console.warn("Error fetching projects:", error);
+      setProjects(language === 'uk' ? PROJECTS_UK : PROJECTS_EN);
+      setLoading(false);
+    });
 
-    fetchProjects();
+    return () => unsubscribe();
   }, [language]);
 
   // Determine if project is active based on deadline
@@ -64,7 +71,6 @@ export const ProjectsSection: React.FC = () => {
 
   // Convert Project to Opportunity for the ApplicationModal
   const projectToOpportunity = (p: Project): Opportunity => {
-    // Determine language specific content
     const title = language === 'uk' ? p.title : (p.titleEn || p.title);
     const desc = language === 'uk' ? p.description : (p.descriptionEn || p.description);
 
@@ -73,21 +79,18 @@ export const ProjectsSection: React.FC = () => {
       title: title,
       description: desc,
       deadline: p.deadline || '',
-      type: 'Event', // Active projects are typically events
+      type: 'Event', 
       link: '',
       image: p.image,
-      questions: p.questions || [] // Pass the custom questions configured in Admin
+      questions: p.questions || [] 
     };
   };
 
   const handleRegisterClick = (project: Project) => {
-    // 1. Set the opportunity data specifically for the application modal
     setApplicationOpp(projectToOpportunity(project));
-    // 2. Close the project detail modal
     setSelectedProject(null);
   };
 
-  // Helper to get correct text based on language
   const getProjectTitle = (p: Project) => language === 'uk' ? p.title : (p.titleEn || p.title);
   const getProjectDesc = (p: Project) => language === 'uk' ? p.description : (p.descriptionEn || p.description);
   const getProjectFullDesc = (p: Project) => {
@@ -187,7 +190,6 @@ export const ProjectsSection: React.FC = () => {
                 alt={getProjectTitle(selectedProject)} 
                 className="w-full h-full object-cover rounded-t-2xl" 
                />
-               {/* Date Badge */}
                <div className="absolute top-4 left-4 bg-white/90 backdrop-blur px-3 py-1 rounded-full text-sm font-bold text-kmmr-blue flex items-center gap-2 shadow-sm">
                  <Calendar size={14} /> 
                  <span>{selectedProject.date}</span>
@@ -197,7 +199,6 @@ export const ProjectsSection: React.FC = () => {
             <div className="p-8">
               <h3 className="text-3xl font-black text-kmmr-blue dark:text-white mb-2 leading-tight">{getProjectTitle(selectedProject)}</h3>
               
-              {/* Deadline Display */}
               {selectedProject.deadline && (
                 <div className="flex items-center gap-2 text-red-500 font-bold mb-4 text-sm bg-red-50 dark:bg-red-900/20 inline-block px-3 py-1 rounded-lg">
                   <Clock size={16} />
@@ -238,7 +239,6 @@ export const ProjectsSection: React.FC = () => {
         )}
       </Modal>
 
-      {/* Application Form */}
       <ApplicationModal 
         isOpen={!!applicationOpp} 
         onClose={() => setApplicationOpp(null)} 

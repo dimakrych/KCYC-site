@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { DOCUMENTS_LIST_UK, DOCUMENTS_LIST_EN } from '../constants';
 import { FileText, Download, ShieldCheck, ChevronRight, Loader2 } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
-import { collection, getDocs, query } from 'firebase/firestore';
+import { collection, query, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 import { DocumentItem } from '../types';
 
@@ -11,35 +11,34 @@ export const DocumentsSection: React.FC = () => {
   const [documents, setDocuments] = useState<DocumentItem[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const handleDownload = (e: React.MouseEvent, title: string) => {
-    // Якщо це лінк на файл, браузер сам почне завантаження.
-    // Але можна додати логіку аналітики тут.
-  };
-
   useEffect(() => {
-    const fetchDocs = async () => {
-      try {
-        const q = query(collection(db, "documents"));
-        const querySnapshot = await getDocs(q);
-        const fetchedDocs: DocumentItem[] = querySnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        } as DocumentItem));
-        
-        if (fetchedDocs.length > 0) {
-          setDocuments(fetchedDocs);
-        } else {
-          setDocuments(language === 'uk' ? DOCUMENTS_LIST_UK : DOCUMENTS_LIST_EN);
-        }
-      } catch (error) {
-        console.error("Error fetching docs:", error);
-        setDocuments(language === 'uk' ? DOCUMENTS_LIST_UK : DOCUMENTS_LIST_EN);
-      } finally {
-        setLoading(false);
-      }
-    };
+    setLoading(true);
+    const q = query(collection(db, "documents"));
+    
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const fetchedDocs: DocumentItem[] = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      } as DocumentItem));
+      
+      let displayDocs = fetchedDocs.length > 0 ? fetchedDocs : (language === 'uk' ? DOCUMENTS_LIST_UK : DOCUMENTS_LIST_EN);
+      
+      // Sort by order
+      displayDocs.sort((a,b) => {
+         const orderA = a.order !== undefined ? a.order : 999;
+         const orderB = b.order !== undefined ? b.order : 999;
+         return orderA - orderB;
+      });
 
-    fetchDocs();
+      setDocuments(displayDocs);
+      setLoading(false);
+    }, (error) => {
+      console.error("Error fetching docs:", error);
+      setDocuments(language === 'uk' ? DOCUMENTS_LIST_UK : DOCUMENTS_LIST_EN);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
   }, [language]);
 
   return (
