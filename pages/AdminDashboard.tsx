@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
-  Users, FileText, Calendar, LogOut, Plus, Search, Trash2, Edit2, Download, Briefcase, CheckCircle, XCircle, Clock, Loader2, Save, GripVertical, List, Languages, Image as ImageIcon, Smile, Filter, ChevronDown, Building2, Palette, Handshake, Link as LinkIcon, Settings, Mail, Instagram, Menu, X
+  Users, FileText, Calendar, LogOut, Plus, Search, Trash2, Edit2, Download, Briefcase, CheckCircle, XCircle, Clock, Loader2, Save, GripVertical, List, Languages, Image as ImageIcon, Smile, Filter, ChevronDown, ChevronUp, Building2, Palette, Handshake, Link as LinkIcon, Settings, Mail, Instagram, Menu, X
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { 
@@ -211,6 +211,93 @@ export const AdminDashboard: React.FC = () => {
         handleFirebaseError(e, 'видалення запису');
       }
     }
+  };
+
+  // Helper for moving items (Mobile support for Drag and Drop replacement)
+  const moveItem = async (
+    index: number, 
+    direction: 'up' | 'down', 
+    list: any[], 
+    setList: (l: any[]) => void, 
+    collectionName: string
+  ) => {
+    if ((direction === 'up' && index === 0) || (direction === 'down' && index === list.length - 1)) return;
+    
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    const updatedList = [...list];
+    
+    // Swap items in local state
+    [updatedList[index], updatedList[targetIndex]] = [updatedList[targetIndex], updatedList[index]];
+    setList(updatedList);
+
+    // Update Order in DB
+    try {
+      const batch = writeBatch(db);
+      updatedList.forEach((item, idx) => {
+        batch.update(doc(db, collectionName, item.id), { order: idx });
+      });
+      await batch.commit();
+    } catch (error: any) {
+      handleFirebaseError(error, `зміна порядку ${collectionName}`);
+    }
+  };
+
+  // Specialized move for Partner (Filtered list)
+  const movePartner = async (index: number, direction: 'up' | 'down') => {
+     const visiblePartners = partners.filter(p => p.type === partnerFilterType);
+     if ((direction === 'up' && index === 0) || (direction === 'down' && index === visiblePartners.length - 1)) return;
+
+     const targetIndex = direction === 'up' ? index - 1 : index + 1;
+     const itemA = visiblePartners[index];
+     const itemB = visiblePartners[targetIndex];
+
+     // Swap in full list by finding indices
+     const idxA = partners.findIndex(p => p.id === itemA.id);
+     const idxB = partners.findIndex(p => p.id === itemB.id);
+     
+     const newFullList = [...partners];
+     [newFullList[idxA], newFullList[idxB]] = [newFullList[idxB], newFullList[idxA]];
+     setPartners(newFullList);
+
+     try {
+       const batch = writeBatch(db);
+       // Re-order the filtered list items' order field to be sequential relative to each other
+       // Or simpler: just update order field of visible partners based on new sequence
+       // But to support mixing with drag and drop, we should probably just swap their 'order' values if distinct, or re-index.
+       // Re-indexing visible list:
+       const newVisible = newFullList.filter(p => p.type === partnerFilterType);
+       newVisible.forEach((item, idx) => {
+          batch.update(doc(db, "partners", item.id), { order: idx });
+       });
+       await batch.commit();
+     } catch(e) { console.error(e); }
+  };
+
+  // Specialized move for Team (Filtered list)
+  const moveTeamMember = async (index: number, direction: 'up' | 'down') => {
+     const visibleMembers = teamMembers.filter(m => teamFilterDept === 'all' || m.department === teamFilterDept);
+     if ((direction === 'up' && index === 0) || (direction === 'down' && index === visibleMembers.length - 1)) return;
+
+     const targetIndex = direction === 'up' ? index - 1 : index + 1;
+     const itemA = visibleMembers[index];
+     const itemB = visibleMembers[targetIndex];
+
+     const idxA = teamMembers.findIndex(m => m.id === itemA.id);
+     const idxB = teamMembers.findIndex(m => m.id === itemB.id);
+
+     const newFullList = [...teamMembers];
+     [newFullList[idxA], newFullList[idxB]] = [newFullList[idxB], newFullList[idxA]];
+     setTeamMembers(newFullList);
+
+     try {
+       const batch = writeBatch(db);
+       // Re-index only visible members to maintain their relative order
+       const newVisible = newFullList.filter(m => teamFilterDept === 'all' || m.department === teamFilterDept);
+       newVisible.forEach((item, idx) => {
+          batch.update(doc(db, "team", item.id), { order: idx });
+       });
+       await batch.commit();
+     } catch(e) { console.error(e); }
   };
 
   const handleFileUpload = async (file: File, folder: string): Promise<string> => {
@@ -955,7 +1042,85 @@ export const AdminDashboard: React.FC = () => {
               </div>
             </div>
 
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden overflow-x-auto">
+            {/* Mobile View (Cards) */}
+            <div className="md:hidden space-y-4">
+              {filteredSubmissions.length === 0 ? (
+                 <div className="p-8 text-center bg-white rounded-xl text-gray-400 border border-gray-200">
+                    <p>Заявки відсутні.</p>
+                 </div>
+              ) : (
+                filteredSubmissions.map(sub => {
+                  const date = sub.createdAt && typeof sub.createdAt === 'object' 
+                                  ? new Date((sub.createdAt as any).seconds * 1000).toLocaleDateString() 
+                                  : sub.createdAt;
+                  
+                  const isApp = (sub as any).formType === 'opportunity_application';
+
+                  return (
+                    <div key={sub.id} className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex flex-col gap-3">
+                       <div className="flex justify-between items-start">
+                          <div>
+                             <h4 className="font-bold text-gray-900 text-lg">{sub.name || sub.email}</h4>
+                             <div className="text-xs text-gray-500 flex items-center gap-1 mt-1"><Clock size={12}/> {date}</div>
+                          </div>
+                          <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase ${getStatusColor(sub.status)}`}>{sub.status}</span>
+                       </div>
+
+                       <div className="border-t border-b border-gray-50 py-2">
+                          {isApp ? (
+                              <div className="text-sm">
+                                <span className="text-xs font-bold text-kmmr-purple bg-purple-50 px-2 py-0.5 rounded mr-2">Реєстрація</span>
+                                <span className="font-semibold text-gray-800">{(sub as any).opportunityTitle}</span>
+                              </div>
+                          ) : submissionFilter === 'newsletter' ? (
+                              <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded">Підписка на новини</span>
+                          ) : (
+                              <div className="text-sm">
+                                <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded mr-2">Контакт</span>
+                                <span className="font-semibold text-gray-700">{sub.department || 'Загальне'}</span>
+                              </div>
+                          )}
+                       </div>
+
+                       {submissionFilter !== 'newsletter' && (
+                         <div className="grid grid-cols-2 gap-2 text-sm">
+                            <a href={`mailto:${sub.email}`} className="flex items-center gap-1 text-gray-600 hover:text-kmmr-blue truncate"><Mail size={14}/> {sub.email}</a>
+                            <a href={`tel:${sub.phone}`} className="flex items-center gap-1 text-gray-600 hover:text-kmmr-blue truncate"><Briefcase size={14}/> {sub.phone}</a>
+                         </div>
+                       )}
+
+                       {/* Details Area */}
+                       {submissionFilter !== 'newsletter' && (
+                         <div className="bg-gray-50 p-3 rounded-lg text-xs text-gray-700 mt-1">
+                            {(sub as any).answers ? (
+                                <div className="space-y-1">
+                                    {Object.entries((sub as any).answers).slice(0, 3).map(([key, val]) => (
+                                        <div key={key} className="truncate">
+                                            <span className="font-bold">{key.replace(/_/g, ' ')}:</span> {String(val)}
+                                        </div>
+                                    ))}
+                                    {Object.keys((sub as any).answers).length > 3 && <div className="text-gray-400 italic">...більше полів (експорт)</div>}
+                                </div>
+                            ) : (
+                                <div className="italic">"{sub.motivation}"</div>
+                            )}
+                         </div>
+                       )}
+
+                       <div className="flex items-center justify-end gap-2 mt-2 pt-2 border-t border-gray-100">
+                          <button onClick={() => updateStatus(sub.id, 'contacted')} className="p-2 bg-yellow-50 text-yellow-600 rounded-lg"><Clock size={18}/></button>
+                          <button onClick={() => updateStatus(sub.id, 'approved')} className="p-2 bg-green-50 text-green-600 rounded-lg"><CheckCircle size={18}/></button>
+                          <button onClick={() => updateStatus(sub.id, 'rejected')} className="p-2 bg-red-50 text-red-600 rounded-lg"><XCircle size={18}/></button>
+                          <button onClick={() => deleteItem('submissions', sub.id)} className="p-2 bg-gray-50 text-gray-400 hover:text-red-500 rounded-lg"><Trash2 size={18}/></button>
+                       </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Desktop Table */}
+            <div className="hidden md:block bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden overflow-x-auto">
                {/* --- NEWSLETTER TABLE --- */}
                {submissionFilter === 'newsletter' ? (
                  filteredSubmissions.length === 0 ? (
@@ -1098,7 +1263,7 @@ export const AdminDashboard: React.FC = () => {
                   onDrop={() => handleDropDoc(index)}
                   className={`bg-white p-6 rounded-xl border border-gray-200 shadow-sm flex items-start gap-4 group cursor-move transition-all ${draggedDocIndex === index ? 'opacity-50 border-dashed border-kmmr-blue' : ''}`}
                 >
-                  <div className="mt-2 text-gray-300"><GripVertical size={20}/></div>
+                  <div className="mt-2 text-gray-300 hidden md:block"><GripVertical size={20}/></div>
                   <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center shrink-0">
                     <FileText className="text-gray-500" />
                   </div>
@@ -1107,7 +1272,11 @@ export const AdminDashboard: React.FC = () => {
                     <p className="text-xs text-gray-500 mt-1">{doc.date} • {doc.size}</p>
                     <a href={doc.link} target="_blank" rel="noreferrer" className="text-xs text-kmmr-blue hover:underline mt-1 block">Завантажити</a>
                   </div>
-                  <button onClick={() => deleteItem('documents', doc.id)} className="text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all">
+                  <div className="flex flex-col gap-1 items-center">
+                     <button onClick={() => moveItem(index, 'up', documents, setDocuments, 'documents')} className="p-1 hover:bg-gray-100 rounded text-gray-400 hover:text-kmmr-blue"><ChevronUp size={16}/></button>
+                     <button onClick={() => moveItem(index, 'down', documents, setDocuments, 'documents')} className="p-1 hover:bg-gray-100 rounded text-gray-400 hover:text-kmmr-blue"><ChevronDown size={16}/></button>
+                  </div>
+                  <button onClick={() => deleteItem('documents', doc.id)} className="text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all absolute top-2 right-2">
                     <Trash2 size={18} />
                   </button>
                 </div>
@@ -1196,7 +1365,7 @@ export const AdminDashboard: React.FC = () => {
                    className={`bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm flex flex-col hover:shadow-md transition-all cursor-move ${draggedProjectIndex === index ? 'opacity-50 border-dashed border-kmmr-blue' : ''}`}
                  >
                    <div className="h-48 bg-gray-200 relative group">
-                     <div className="absolute top-2 right-2 z-10 p-1 bg-black/30 rounded text-white"><GripVertical size={16}/></div>
+                     <div className="absolute top-2 right-2 z-10 p-1 bg-black/30 rounded text-white hidden md:block"><GripVertical size={16}/></div>
                      <img src={project.image} alt="" className="w-full h-full object-cover" />
                    </div>
                    <div className="p-5 flex-grow">
@@ -1204,8 +1373,14 @@ export const AdminDashboard: React.FC = () => {
                      <p className="text-sm text-gray-500 line-clamp-3">{project.description}</p>
                    </div>
                    <div className="p-4 border-t border-gray-100 bg-gray-50 flex justify-between items-center">
-                      <button onClick={() => { setNewProject(project); setIsAddingProject(true); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="text-kmmr-blue text-xs font-bold hover:underline flex items-center gap-1"><Edit2 size={14}/> Редагувати</button>
-                      <button onClick={() => deleteItem('projects', project.id)} className="text-red-500 text-xs font-bold hover:bg-red-50 px-2 py-1 rounded">Видалити</button>
+                      <div className="flex items-center gap-2">
+                         <button onClick={() => moveItem(index, 'up', projects, setProjects, 'projects')} className="p-1 hover:bg-gray-200 rounded text-gray-400 hover:text-kmmr-blue"><ChevronUp size={16}/></button>
+                         <button onClick={() => moveItem(index, 'down', projects, setProjects, 'projects')} className="p-1 hover:bg-gray-200 rounded text-gray-400 hover:text-kmmr-blue"><ChevronDown size={16}/></button>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button onClick={() => { setNewProject(project); setIsAddingProject(true); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="text-kmmr-blue text-xs font-bold hover:underline flex items-center gap-1"><Edit2 size={14}/> Ред</button>
+                        <button onClick={() => deleteItem('projects', project.id)} className="text-red-500 text-xs font-bold hover:bg-red-50 px-2 py-1 rounded"><Trash2 size={14}/></button>
+                      </div>
                    </div>
                  </div>
                ))}
@@ -1377,13 +1552,17 @@ export const AdminDashboard: React.FC = () => {
                            onDrop={() => handleDropDept(index)}
                            className={`bg-white p-6 rounded-xl border border-gray-200 shadow-sm flex items-start gap-4 cursor-move transition-all ${draggedDeptIndex === index ? 'opacity-50 border-dashed border-kmmr-blue' : ''}`}
                         >
-                           <div className="mt-2 text-gray-300"><GripVertical size={20}/></div>
+                           <div className="mt-2 text-gray-300 hidden md:block"><GripVertical size={20}/></div>
                            <div style={{ backgroundColor: dept.color }} className="w-12 h-12 rounded-lg flex items-center justify-center shrink-0">
                               {dept.icon && <img src={dept.icon} alt="" className="w-6 h-6 object-contain invert-0 brightness-0 invert" style={{ filter: 'brightness(0) invert(1)' }} />}
                            </div>
                            <div className="flex-grow min-w-0">
                               <h3 className="font-bold text-gray-800">{dept.name}</h3>
                               <p className="text-xs text-gray-500 line-clamp-2">{dept.description}</p>
+                           </div>
+                           <div className="flex flex-col gap-1 items-center">
+                              <button onClick={() => moveItem(index, 'up', departments, setDepartments, 'departments')} className="p-1 hover:bg-gray-100 rounded text-gray-400 hover:text-kmmr-blue"><ChevronUp size={16}/></button>
+                              <button onClick={() => moveItem(index, 'down', departments, setDepartments, 'departments')} className="p-1 hover:bg-gray-100 rounded text-gray-400 hover:text-kmmr-blue"><ChevronDown size={16}/></button>
                            </div>
                            <div className="flex flex-col gap-2">
                               <button onClick={() => { setNewDept(dept); setIsAddingDept(true); window.scrollTo({top:0, behavior:'smooth'}); }} className="text-kmmr-blue hover:bg-blue-50 p-1 rounded"><Edit2 size={16}/></button>
@@ -1536,7 +1715,7 @@ export const AdminDashboard: React.FC = () => {
                                onDrop={() => handleDropMember(index)}
                                className={`bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex items-center gap-4 cursor-move transition-all ${draggedMemberIndex === index ? 'opacity-50 border-dashed border-kmmr-blue' : ''}`}
                             >
-                               <div className="text-gray-300"><GripVertical size={20}/></div>
+                               <div className="text-gray-300 hidden md:block"><GripVertical size={20}/></div>
                                <div className="w-12 h-12 rounded-full overflow-hidden shrink-0 bg-gray-100">
                                   <img src={member.image} alt="" className="w-full h-full object-cover"/>
                                </div>
@@ -1544,6 +1723,10 @@ export const AdminDashboard: React.FC = () => {
                                   <h4 className="font-bold text-gray-800 text-sm">{member.name}</h4>
                                   <p className="text-xs text-gray-500">{member.role}</p>
                                   <span className="text-[10px] uppercase font-bold text-kmmr-blue bg-blue-50 px-1.5 py-0.5 rounded mt-1 inline-block">{deptName}</span>
+                               </div>
+                               <div className="flex flex-col gap-1 items-center">
+                                  <button onClick={() => moveTeamMember(index, 'up')} className="p-1 hover:bg-gray-100 rounded text-gray-400 hover:text-kmmr-blue"><ChevronUp size={16}/></button>
+                                  <button onClick={() => moveTeamMember(index, 'down')} className="p-1 hover:bg-gray-100 rounded text-gray-400 hover:text-kmmr-blue"><ChevronDown size={16}/></button>
                                </div>
                                <div className="flex flex-col gap-1">
                                   <button onClick={() => { 
@@ -1639,13 +1822,17 @@ export const AdminDashboard: React.FC = () => {
                           onDrop={() => handleDropPartnerType(index)}
                           className={`bg-white p-6 rounded-xl border border-gray-200 shadow-sm flex items-start gap-4 cursor-move ${draggedPartnerTypeIndex === index ? 'opacity-50 border-dashed border-kmmr-blue' : ''}`}
                        >
-                          <div className="mt-2 text-gray-300"><GripVertical size={20}/></div>
+                          <div className="mt-2 text-gray-300 hidden md:block"><GripVertical size={20}/></div>
                           <div style={{ backgroundColor: pt.color }} className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0">
                              {pt.icon && <img src={pt.icon} alt="" className="w-6 h-6 object-contain invert brightness-0 invert" style={{ filter: 'brightness(0) invert(1)' }} />}
                           </div>
                           <div className="flex-grow min-w-0">
                              <h4 className="font-bold text-gray-800">{pt.name}</h4>
                              <p className="text-xs text-gray-500 line-clamp-2">{pt.description}</p>
+                          </div>
+                          <div className="flex flex-col gap-1 items-center">
+                             <button onClick={() => moveItem(index, 'up', partnerTypes, setPartnerTypes, 'partner_types')} className="p-1 hover:bg-gray-100 rounded text-gray-400 hover:text-kmmr-blue"><ChevronUp size={16}/></button>
+                             <button onClick={() => moveItem(index, 'down', partnerTypes, setPartnerTypes, 'partner_types')} className="p-1 hover:bg-gray-100 rounded text-gray-400 hover:text-kmmr-blue"><ChevronDown size={16}/></button>
                           </div>
                           <div className="flex flex-col gap-2">
                              <button onClick={() => { setNewPartnerType(pt); setIsAddingPartnerType(true); window.scrollTo({top:0, behavior:'smooth'}); }} className="p-1 text-kmmr-blue hover:bg-blue-50 rounded"><Edit2 size={16}/></button>
@@ -1728,7 +1915,11 @@ export const AdminDashboard: React.FC = () => {
                            className={`bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col cursor-move hover:shadow-md transition-all ${draggedPartnerIndex === index ? 'opacity-50 border-dashed border-kmmr-blue' : ''}`}
                         >
                            <div className="flex justify-between items-start mb-2">
-                              <div className="text-gray-300"><GripVertical size={16}/></div>
+                              <div className="text-gray-300 hidden md:block"><GripVertical size={16}/></div>
+                              <div className="flex flex-col gap-1 items-center">
+                                 <button onClick={() => movePartner(index, 'up')} className="p-1 hover:bg-gray-100 rounded text-gray-400 hover:text-kmmr-blue"><ChevronUp size={16}/></button>
+                                 <button onClick={() => movePartner(index, 'down')} className="p-1 hover:bg-gray-100 rounded text-gray-400 hover:text-kmmr-blue"><ChevronDown size={16}/></button>
+                              </div>
                               <div className="flex gap-1">
                                  <button onClick={() => { setNewPartner(partner); setIsAddingPartner(true); window.scrollTo({top:0, behavior:'smooth'}); }} className="text-kmmr-blue hover:bg-blue-50 p-1 rounded"><Edit2 size={14}/></button>
                                  <button onClick={() => deleteItem('partners', partner.id)} className="text-red-500 hover:bg-red-50 p-1 rounded"><Trash2 size={14}/></button>
