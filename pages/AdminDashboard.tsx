@@ -213,7 +213,7 @@ export const AdminDashboard: React.FC = () => {
     }
   };
 
-  // Helper for moving items (Mobile support for Drag and Drop replacement)
+  // Helper for move (Mobile support for Drag and Drop replacement)
   const moveItem = async (
     index: number, 
     direction: 'up' | 'down', 
@@ -827,7 +827,7 @@ export const AdminDashboard: React.FC = () => {
 
   const handleSaveOpportunity = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newOpp.title || !newOpp.deadline) return;
+    if (!newOpp.title) return;
     setLoading(true);
     try {
       const oppPayload = {
@@ -1412,7 +1412,7 @@ export const AdminDashboard: React.FC = () => {
                                              : <input className="w-full border p-2 rounded-lg" value={newOpp.descriptionEn || ''} onChange={e => setNewOpp({...newOpp, descriptionEn: e.target.value})} />}
                        </div>
                        <div className="space-y-2"><label className="text-sm font-bold text-gray-700">Тип</label><select className="w-full border p-2 rounded-lg" value={newOpp.type} onChange={e => setNewOpp({...newOpp, type: e.target.value as any})}><option value="Volunteering">Волонтерство</option><option value="Event">Подія</option><option value="Education">Навчання</option><option value="Job">Робота</option></select></div>
-                       <div className="space-y-2"><label className="text-sm font-bold text-gray-700">Дедлайн</label><input className="w-full border p-2 rounded-lg" type="date" value={newOpp.deadline || ''} onChange={e => setNewOpp({...newOpp, deadline: e.target.value})} required /></div>
+                       <div className="space-y-2"><label className="text-sm font-bold text-gray-700">Дедлайн (Залиште пустим для постійного набору)</label><input className="w-full border p-2 rounded-lg" type="date" value={newOpp.deadline || ''} onChange={e => setNewOpp({...newOpp, deadline: e.target.value})} /></div>
                     </div>
                     <div className="border-t border-gray-200 pt-6">
                        <h4 className="font-bold text-lg mb-4 flex items-center gap-2"><List size={20}/> Анкета</h4>
@@ -1446,7 +1446,7 @@ export const AdminDashboard: React.FC = () => {
                        <div>
                           <div className="flex items-center gap-2 mb-1">
                              <span className={`text-xs font-bold uppercase px-2 py-0.5 rounded ${opp.type === 'Volunteering' ? 'bg-green-100 text-green-700' : opp.type === 'Event' ? 'bg-pink-100 text-pink-700' : 'bg-blue-100 text-blue-700'}`}>{opp.type}</span>
-                             <span className="text-xs text-gray-400 flex items-center gap-1"><Clock size={12}/> Дедлайн: {opp.deadline}</span>
+                             <span className="text-xs text-gray-400 flex items-center gap-1"><Clock size={12}/> Дедлайн: {opp.deadline || 'Постійний'}</span>
                           </div>
                           <h3 className="font-bold text-lg text-gray-800">{opp.title}</h3>
                        </div>
