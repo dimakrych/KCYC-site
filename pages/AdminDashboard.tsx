@@ -36,6 +36,7 @@ export const AdminDashboard: React.FC = () => {
   const [draggedDocIndex, setDraggedDocIndex] = useState<number | null>(null);
   const [draggedPartnerIndex, setDraggedPartnerIndex] = useState<number | null>(null);
   const [draggedPartnerTypeIndex, setDraggedPartnerTypeIndex] = useState<number | null>(null);
+  const [draggedMemberIndex, setDraggedMemberIndex] = useState<number | null>(null);
 
   // Submission Filters
   const [submissionFilter, setSubmissionFilter] = useState<'all' | 'contact' | 'application'>('all');
@@ -123,6 +124,11 @@ export const AdminDashboard: React.FC = () => {
 
       const unsubTeam = onSnapshot(collection(db, "team"), (snapshot) => {
         const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as TeamMember));
+        data.sort((a,b) => {
+          const orderA = a.order !== undefined ? a.order : 999;
+          const orderB = b.order !== undefined ? b.order : 999;
+          return orderA - orderB;
+        });
         setTeamMembers(data);
       }, (error) => console.error("Team listener error:", error));
 
@@ -303,6 +309,35 @@ export const AdminDashboard: React.FC = () => {
       });
       await batch.commit();
     } catch (error: any) { handleFirebaseError(error, 'оновлення порядку партнерів'); }
+  };
+
+  const handleDragStartMember = (index: number) => setDraggedMemberIndex(index);
+  const handleDropMember = async (dropIndex: number) => {
+    if (draggedMemberIndex === null || draggedMemberIndex === dropIndex) return;
+
+    // Filter list logic
+    const filteredList = teamMembers.filter(m => teamFilterDept === 'all' || m.department === teamFilterDept);
+    
+    // Check if dragging within filtered context
+    if (dropIndex >= filteredList.length) return;
+
+    const updatedFiltered = [...filteredList];
+    const [draggedItem] = updatedFiltered.splice(draggedMemberIndex, 1);
+    updatedFiltered.splice(dropIndex, 0, draggedItem);
+
+    // Merge back
+    const otherItems = teamMembers.filter(m => !(teamFilterDept === 'all' || m.department === teamFilterDept));
+    const newFullList = [...otherItems, ...updatedFiltered];
+    setTeamMembers(newFullList);
+    setDraggedMemberIndex(null);
+
+    try {
+      const batch = writeBatch(db);
+      updatedFiltered.forEach((item, index) => {
+        batch.update(doc(db, "team", item.id), { order: index });
+      });
+      await batch.commit();
+    } catch (error: any) { handleFirebaseError(error, 'оновлення порядку команди'); }
   };
 
 
@@ -498,6 +533,10 @@ export const AdminDashboard: React.FC = () => {
       const detailsArray = teamDetailsStr.split('\n').filter(line => line.trim() !== '');
       const detailsEnArray = teamDetailsEnStr.split('\n').filter(line => line.trim() !== '');
 
+      // Determine order: if new, put at end of its dept list
+      const deptMembers = teamMembers.filter(m => m.department === newTeamMember.department);
+      const nextOrder = newTeamMember.id ? (newTeamMember.order ?? 999) : deptMembers.length;
+
       const teamPayload = {
         name: newTeamMember.name || '',
         nameEn: newTeamMember.nameEn || newTeamMember.name || '',
@@ -509,7 +548,8 @@ export const AdminDashboard: React.FC = () => {
         email: newTeamMember.email || '',
         image: imageUrl,
         details: detailsArray,
-        detailsEn: detailsEnArray.length > 0 ? detailsEnArray : detailsArray
+        detailsEn: detailsEnArray.length > 0 ? detailsEnArray : detailsArray,
+        order: nextOrder
       };
 
       if (newTeamMember.id) {
@@ -1365,9 +1405,17 @@ export const AdminDashboard: React.FC = () => {
 
                      {teamMembers
                        .filter(member => teamFilterDept === 'all' || member.department === teamFilterDept)
-                       .map(member => (
-                        <div key={member.id} className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden flex flex-col">
-                           <div className="h-48 bg-gray-100">
+                       .map((member, index) => (
+                        <div 
+                           key={member.id} 
+                           draggable
+                           onDragStart={() => handleDragStartMember(index)}
+                           onDragOver={handleDragOver}
+                           onDrop={() => handleDropMember(index)}
+                           className={`relative group bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden flex flex-col cursor-move transition-all ${draggedMemberIndex === index ? 'opacity-50 border-dashed border-kmmr-blue' : ''}`}
+                        >
+                           <div className="h-48 bg-gray-100 relative">
+                              <div className="absolute top-2 right-2 z-10 p-1 bg-black/30 rounded text-white opacity-0 group-hover:opacity-100 transition-opacity"><GripVertical size={16}/></div>
                               <img src={member.image} alt={member.name} className="w-full h-full object-cover" />
                            </div>
                            <div className="p-4 flex-grow">

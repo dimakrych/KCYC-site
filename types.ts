@@ -13,6 +13,7 @@ export interface TeamMember {
   image: string;
   details: string[]; // Bullet points for popup
   detailsEn?: string[]; // English Bullet points
+  order?: number; // Sorting order within department
 }
 
 export interface Department {
