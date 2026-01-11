@@ -29,7 +29,8 @@ export const AdminDashboard: React.FC = () => {
   const [departments, setDepartments] = useState<Department[]>([]);
   const [partners, setPartners] = useState<PartnerItem[]>([]);
   const [partnerTypes, setPartnerTypes] = useState<PartnerType[]>([]);
-  const [newsletterSubscribers, setNewsletterSubscribers] = useState<NewsletterSubscriber[]>([]);
+  
+  // Removed separate newsletterSubscribers state as it now comes from submissions
 
   // Drag and Drop State
   const [draggedDeptIndex, setDraggedDeptIndex] = useState<number | null>(null);
@@ -97,11 +98,6 @@ export const AdminDashboard: React.FC = () => {
         const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
         setSubmissions(data);
       }, (error) => console.error("Submissions listener error:", error));
-
-      const unsubNewsletter = onSnapshot(query(collection(db, "newsletter_subscribers"), orderBy("createdAt", "desc")), (snapshot) => {
-        const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as NewsletterSubscriber));
-        setNewsletterSubscribers(data);
-      }, (error) => console.error("Newsletter listener error:", error));
 
       const unsubProjects = onSnapshot(collection(db, "projects"), (snapshot) => {
         const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Project));
@@ -177,7 +173,6 @@ export const AdminDashboard: React.FC = () => {
 
       return () => {
         unsubSubmissions();
-        unsubNewsletter();
         unsubProjects();
         unsubDocs();
         unsubOpps();
@@ -366,12 +361,21 @@ export const AdminDashboard: React.FC = () => {
   // --- FILTER LOGIC ---
   const getFilteredSubmissions = () => {
     return submissions.filter(sub => {
-      const isApp = (sub as any).formType === 'opportunity_application';
+      const type = (sub as any).formType;
+      
+      // If we are looking for Newsletter subscribers
+      if (submissionFilter === 'newsletter') {
+         return type === 'newsletter';
+      }
+
+      // If we are looking for other tabs, EXCLUDE newsletter items
+      if (type === 'newsletter') return false;
+
+      const isApp = type === 'opportunity_application';
       
       // 1. Filter by Type
       if (submissionFilter === 'application' && !isApp) return false;
       if (submissionFilter === 'contact' && isApp) return false;
-      // Newsletter is handled separately in the UI logic because it uses a different array
 
       // 2. Filter by Event (only if showing applications or all)
       if (selectedEventFilter !== 'all') {
@@ -387,13 +391,15 @@ export const AdminDashboard: React.FC = () => {
 
   // --- EXPORT TO EXCEL ---
   const downloadExcel = () => {
+    const dataToExport = getFilteredSubmissions();
+    
+    if (dataToExport.length === 0) {
+      alert("Немає даних для експорту");
+      return;
+    }
+
     if (submissionFilter === 'newsletter') {
-      // Export Newsletter
-      if (newsletterSubscribers.length === 0) {
-        alert("Немає підписників для експорту");
-        return;
-      }
-      const formattedData = newsletterSubscribers.map((sub, idx) => ({
+      const formattedData = dataToExport.map((sub, idx) => ({
         "ID": idx + 1,
         "Email": sub.email,
         "Дата підписки": sub.createdAt && typeof sub.createdAt === 'object' 
@@ -409,11 +415,6 @@ export const AdminDashboard: React.FC = () => {
       return;
     }
 
-    const dataToExport = getFilteredSubmissions();
-    if (dataToExport.length === 0) {
-      alert("Немає даних для експорту");
-      return;
-    }
     const formattedData = dataToExport.map(sub => {
       const isApp = (sub as any).formType === 'opportunity_application';
       const date = sub.createdAt && typeof sub.createdAt === 'object' 
@@ -919,7 +920,7 @@ export const AdminDashboard: React.FC = () => {
                     <Download size={16} /> Експорт (XLSX)
                  </button>
                  <div className="text-sm text-gray-500 font-semibold px-2">
-                    Всього: {submissionFilter === 'newsletter' ? newsletterSubscribers.length : filteredSubmissions.length}
+                    Всього: {filteredSubmissions.length}
                  </div>
               </div>
             </div>
@@ -927,7 +928,7 @@ export const AdminDashboard: React.FC = () => {
             <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
                {/* --- NEWSLETTER TABLE --- */}
                {submissionFilter === 'newsletter' ? (
-                 newsletterSubscribers.length === 0 ? (
+                 filteredSubmissions.length === 0 ? (
                    <div className="p-12 text-center flex flex-col items-center text-gray-400">
                       <Mail className="w-12 h-12 mb-2 opacity-50"/>
                       <p>Підписників розсилки поки немає.</p>
@@ -943,7 +944,7 @@ export const AdminDashboard: React.FC = () => {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-100">
-                        {newsletterSubscribers.map((sub, idx) => (
+                        {filteredSubmissions.map((sub, idx) => (
                           <tr key={sub.id} className="hover:bg-gray-50 transition-colors">
                             <td className="p-4 text-sm font-bold text-gray-400">#{idx + 1}</td>
                             <td className="p-4">
@@ -955,7 +956,7 @@ export const AdminDashboard: React.FC = () => {
                                 : sub.createdAt || '-'}
                             </td>
                             <td className="p-4">
-                              <button onClick={() => deleteItem('newsletter_subscribers', sub.id)} title="Видалити" className="p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded"><Trash2 size={18}/></button>
+                              <button onClick={() => deleteItem('submissions', sub.id)} title="Видалити" className="p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded"><Trash2 size={18}/></button>
                             </td>
                           </tr>
                         ))}

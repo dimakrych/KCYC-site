@@ -88,8 +88,10 @@ export const submitApplicationForm = async (data: ApplicationFormData): Promise<
 // Функція підписки на розсилку
 export const subscribeToNewsletter = async (email: string): Promise<{ success: boolean; message: string }> => {
   try {
-    await addDoc(collection(db, "newsletter_subscribers"), {
+    // FIX: Використовуємо колекцію 'submissions', до якої вже є доступ
+    await addDoc(collection(db, "submissions"), {
       email,
+      formType: 'newsletter', // Спеціальний тип для фільтрації
       createdAt: serverTimestamp()
     });
     return { success: true, message: 'Ви успішно підписалися!' };
