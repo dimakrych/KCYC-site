@@ -10,6 +10,16 @@ export const DocumentsSection: React.FC = () => {
   const { language, t } = useLanguage();
   const [documents, setDocuments] = useState<DocumentItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    // Check for mobile device to adjust link behavior
+    const checkMobile = () => {
+      const mobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+      setIsMobile(mobile);
+    };
+    checkMobile();
+  }, []);
 
   useEffect(() => {
     setLoading(true);
@@ -96,8 +106,9 @@ export const DocumentsSection: React.FC = () => {
                       
                       <a 
                         href={doc.link} 
-                        target="_blank"
-                        rel="noreferrer"
+                        target={isMobile ? "_self" : "_blank"}
+                        rel={isMobile ? undefined : "noreferrer"}
+                        download={isMobile} // Add download attribute for mobile to encourage direct download
                         className="inline-flex items-center gap-2 text-sm font-bold text-kmmr-blue dark:text-blue-400 hover:text-kmmr-pink transition-colors"
                       >
                         {t('documents.download')} <Download size={16} />
