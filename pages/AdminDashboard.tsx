@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
-  Users, FileText, Calendar, LogOut, Plus, Search, Trash2, Edit2, Download, Briefcase, CheckCircle, XCircle, Clock, Loader2, Save, GripVertical, List, Languages, Image as ImageIcon, Smile, Filter, ChevronDown, Building2, Palette, Handshake, Link as LinkIcon, Settings, Mail, Instagram
+  Users, FileText, Calendar, LogOut, Plus, Search, Trash2, Edit2, Download, Briefcase, CheckCircle, XCircle, Clock, Loader2, Save, GripVertical, List, Languages, Image as ImageIcon, Smile, Filter, ChevronDown, Building2, Palette, Handshake, Link as LinkIcon, Settings, Mail, Instagram, Menu, X
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { 
@@ -18,6 +18,7 @@ export const AdminDashboard: React.FC = () => {
   const { logout } = useAuth();
   const [activeTab, setActiveTab] = useState<'submissions' | 'projects' | 'docs' | 'opportunities' | 'team' | 'partners'>('submissions');
   const [loading, setLoading] = useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   // Data States
   const [submissions, setSubmissions] = useState<ContactSubmission[]>([]);
@@ -189,6 +190,11 @@ export const AdminDashboard: React.FC = () => {
   const handleLogout = async () => {
     await logout();
     navigate('/login');
+  };
+
+  const handleNavClick = (tab: any) => {
+    setActiveTab(tab);
+    setIsSidebarOpen(false); // Close sidebar on mobile after click
   };
 
   const updateStatus = async (id: string, newStatus: ContactSubmission['status']) => {
@@ -797,40 +803,54 @@ export const AdminDashboard: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 flex">
+    <div className="min-h-screen bg-gray-100 flex relative">
+      
+      {/* Mobile Overlay */}
+      {isSidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-black/50 z-20 md:hidden"
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
+
       {/* Sidebar */}
-      <aside className="w-64 bg-kmmr-blue text-white flex flex-col fixed h-full z-20">
-        <div className="p-6 border-b border-white/10">
-          <h1 className="text-xl font-black tracking-wider">КММР ADMIN</h1>
-          <p className="text-xs text-gray-400 mt-1">Панель керування</p>
+      <aside className={`w-64 bg-kmmr-blue text-white flex flex-col fixed h-full z-30 transition-transform duration-300 transform ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0`}>
+        <div className="p-6 border-b border-white/10 flex justify-between items-center">
+          <div>
+            <h1 className="text-xl font-black tracking-wider">КММР ADMIN</h1>
+            <p className="text-xs text-gray-400 mt-1">Панель керування</p>
+          </div>
+          <button onClick={() => setIsSidebarOpen(false)} className="md:hidden text-white/70 hover:text-white">
+            <X size={24} />
+          </button>
         </div>
         
-        <nav className="flex-grow p-4 space-y-2">
+        <nav className="flex-grow p-4 space-y-2 overflow-y-auto">
           {/* ... Navigation buttons ... */}
-          <button onClick={() => setActiveTab('submissions')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'submissions' ? 'bg-kmmr-pink text-white' : 'hover:bg-white/10 text-gray-300'}`}>
+          <button onClick={() => handleNavClick('submissions')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'submissions' ? 'bg-kmmr-pink text-white' : 'hover:bg-white/10 text-gray-300'}`}>
             <Users size={20} />
             <span className="font-medium">Заявки</span>
             {submissions.filter(s => s.status === 'new').length > 0 && (
               <span className="ml-auto bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">{submissions.filter(s => s.status === 'new').length}</span>
             )}
           </button>
-          <button onClick={() => setActiveTab('projects')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'projects' ? 'bg-kmmr-pink text-white' : 'hover:bg-white/10 text-gray-300'}`}>
+          <button onClick={() => handleNavClick('projects')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'projects' ? 'bg-kmmr-pink text-white' : 'hover:bg-white/10 text-gray-300'}`}>
             <Calendar size={20} />
             <span className="font-medium">Проєкти</span>
           </button>
-          <button onClick={() => setActiveTab('opportunities')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'opportunities' ? 'bg-kmmr-pink text-white' : 'hover:bg-white/10 text-gray-300'}`}>
+          <button onClick={() => handleNavClick('opportunities')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'opportunities' ? 'bg-kmmr-pink text-white' : 'hover:bg-white/10 text-gray-300'}`}>
             <Briefcase size={20} />
             <span className="font-medium">Можливості</span>
           </button>
-           <button onClick={() => setActiveTab('team')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'team' ? 'bg-kmmr-pink text-white' : 'hover:bg-white/10 text-gray-300'}`}>
+           <button onClick={() => handleNavClick('team')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'team' ? 'bg-kmmr-pink text-white' : 'hover:bg-white/10 text-gray-300'}`}>
             <Smile size={20} />
             <span className="font-medium">Команда</span>
           </button>
-          <button onClick={() => setActiveTab('partners')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'partners' ? 'bg-kmmr-pink text-white' : 'hover:bg-white/10 text-gray-300'}`}>
+          <button onClick={() => handleNavClick('partners')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'partners' ? 'bg-kmmr-pink text-white' : 'hover:bg-white/10 text-gray-300'}`}>
             <Handshake size={20} />
             <span className="font-medium">Партнери</span>
           </button>
-          <button onClick={() => setActiveTab('docs')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'docs' ? 'bg-kmmr-pink text-white' : 'hover:bg-white/10 text-gray-300'}`}>
+          <button onClick={() => handleNavClick('docs')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'docs' ? 'bg-kmmr-pink text-white' : 'hover:bg-white/10 text-gray-300'}`}>
             <FileText size={20} />
             <span className="font-medium">Документи</span>
           </button>
@@ -845,10 +865,24 @@ export const AdminDashboard: React.FC = () => {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-grow ml-64 p-8">
+      <main className="flex-grow md:ml-64 p-4 md:p-8 transition-all duration-300">
         
-        {/* Header */}
-        <div className="flex justify-between items-center mb-8">
+        {/* Mobile Header Toggle */}
+        <div className="md:hidden mb-6 flex items-center justify-between">
+           <div className="flex items-center gap-4">
+              <button 
+                onClick={() => setIsSidebarOpen(true)} 
+                className="p-2 bg-white rounded-lg shadow text-kmmr-blue hover:bg-gray-50"
+              >
+                <Menu size={24} />
+              </button>
+              <h2 className="font-bold text-lg text-gray-800">Admin Panel</h2>
+           </div>
+           {loading && <Loader2 className="animate-spin text-kmmr-blue" size={24} />}
+        </div>
+
+        {/* Header Desktop */}
+        <div className="hidden md:flex justify-between items-center mb-8">
           <h2 className="text-3xl font-bold text-gray-800">
             {activeTab === 'submissions' && 'Заявки волонтерів'}
             {activeTab === 'projects' && 'Керування Проєктами'}
@@ -864,30 +898,30 @@ export const AdminDashboard: React.FC = () => {
         {activeTab === 'submissions' && (
           <div className="space-y-4">
             {/* Toolbar */}
-            <div className="flex flex-wrap items-center justify-between gap-4 bg-white p-4 rounded-xl border border-gray-200">
-              <div className="flex items-center gap-4">
-                <div className="flex gap-2 bg-gray-100 p-1 rounded-lg">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-4 rounded-xl border border-gray-200">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                <div className="flex flex-wrap gap-2 bg-gray-100 p-1 rounded-lg">
                   <button 
                     onClick={() => { setSubmissionFilter('all'); setSelectedEventFilter('all'); }}
-                    className={`px-4 py-2 rounded-md text-sm font-bold transition-all ${submissionFilter === 'all' ? 'bg-white shadow text-kmmr-blue' : 'text-gray-500 hover:text-gray-700'}`}
+                    className={`px-3 py-2 rounded-md text-xs sm:text-sm font-bold transition-all ${submissionFilter === 'all' ? 'bg-white shadow text-kmmr-blue' : 'text-gray-500 hover:text-gray-700'}`}
                   >
                     Всі
                   </button>
                   <button 
                     onClick={() => { setSubmissionFilter('contact'); setSelectedEventFilter('all'); }}
-                    className={`px-4 py-2 rounded-md text-sm font-bold transition-all ${submissionFilter === 'contact' ? 'bg-white shadow text-kmmr-blue' : 'text-gray-500 hover:text-gray-700'}`}
+                    className={`px-3 py-2 rounded-md text-xs sm:text-sm font-bold transition-all ${submissionFilter === 'contact' ? 'bg-white shadow text-kmmr-blue' : 'text-gray-500 hover:text-gray-700'}`}
                   >
-                    Зворотній зв'язок
+                    Зв'язок
                   </button>
                   <button 
                     onClick={() => setSubmissionFilter('application')}
-                    className={`px-4 py-2 rounded-md text-sm font-bold transition-all ${submissionFilter === 'application' ? 'bg-white shadow text-kmmr-blue' : 'text-gray-500 hover:text-gray-700'}`}
+                    className={`px-3 py-2 rounded-md text-xs sm:text-sm font-bold transition-all ${submissionFilter === 'application' ? 'bg-white shadow text-kmmr-blue' : 'text-gray-500 hover:text-gray-700'}`}
                   >
                     Реєстрації
                   </button>
                   <button 
                     onClick={() => setSubmissionFilter('newsletter')}
-                    className={`px-4 py-2 rounded-md text-sm font-bold transition-all ${submissionFilter === 'newsletter' ? 'bg-white shadow text-kmmr-blue' : 'text-gray-500 hover:text-gray-700'}`}
+                    className={`px-3 py-2 rounded-md text-xs sm:text-sm font-bold transition-all ${submissionFilter === 'newsletter' ? 'bg-white shadow text-kmmr-blue' : 'text-gray-500 hover:text-gray-700'}`}
                   >
                     Розсилка
                   </button>
@@ -895,11 +929,11 @@ export const AdminDashboard: React.FC = () => {
                 
                 {/* Event Dropdown Filter */}
                 {submissionFilter !== 'contact' && submissionFilter !== 'newsletter' && uniqueEvents.length > 0 && (
-                   <div className="relative">
+                   <div className="relative w-full sm:w-auto">
                       <select 
                         value={selectedEventFilter}
                         onChange={(e) => setSelectedEventFilter(e.target.value)}
-                        className="appearance-none pl-4 pr-10 py-2.5 rounded-lg border border-gray-200 bg-white text-sm font-semibold text-gray-700 hover:border-kmmr-blue focus:outline-none focus:ring-2 focus:ring-kmmr-blue/20 cursor-pointer min-w-[200px]"
+                        className="w-full appearance-none pl-4 pr-10 py-2.5 rounded-lg border border-gray-200 bg-white text-sm font-semibold text-gray-700 hover:border-kmmr-blue focus:outline-none focus:ring-2 focus:ring-kmmr-blue/20 cursor-pointer sm:min-w-[200px]"
                       >
                          <option value="all">Всі події</option>
                          {uniqueEvents.map(event => (
@@ -911,9 +945,9 @@ export const AdminDashboard: React.FC = () => {
                 )}
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center justify-between sm:justify-end gap-2 w-full sm:w-auto">
                  <button onClick={downloadExcel} className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-bold text-sm transition-colors shadow-sm">
-                    <Download size={16} /> Експорт (XLSX)
+                    <Download size={16} /> <span className="hidden sm:inline">Експорт (XLSX)</span>
                  </button>
                  <div className="text-sm text-gray-500 font-semibold px-2">
                     Всього: {filteredSubmissions.length}
@@ -921,7 +955,7 @@ export const AdminDashboard: React.FC = () => {
               </div>
             </div>
 
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden overflow-x-auto">
                {/* --- NEWSLETTER TABLE --- */}
                {submissionFilter === 'newsletter' ? (
                  filteredSubmissions.length === 0 ? (
@@ -930,7 +964,7 @@ export const AdminDashboard: React.FC = () => {
                       <p>Підписників розсилки поки немає.</p>
                    </div>
                  ) : (
-                   <table className="w-full text-left">
+                   <table className="w-full text-left min-w-[600px]">
                       <thead className="bg-gray-50 border-b border-gray-100">
                         <tr>
                           <th className="p-4 text-sm font-bold text-gray-500 uppercase">ID</th>
@@ -967,7 +1001,7 @@ export const AdminDashboard: React.FC = () => {
                       <p>Заявки відсутні в цій категорії.</p>
                    </div>
                  ) : (
-                  <table className="w-full text-left">
+                  <table className="w-full text-left min-w-[900px]">
                     <thead className="bg-gray-50 border-b border-gray-100">
                       <tr>
                         <th className="p-4 text-sm font-bold text-gray-500 uppercase">Ім'я / Дата</th>
@@ -1254,7 +1288,7 @@ export const AdminDashboard: React.FC = () => {
         {activeTab === 'team' && (
            <div className="space-y-6">
              {/* Toggle between Members and Departments */}
-             <div className="flex gap-4 mb-4">
+             <div className="flex flex-col sm:flex-row gap-4 mb-4">
                 <button 
                   onClick={() => setShowDeptManager(false)} 
                   className={`px-4 py-2 rounded-lg font-bold transition-all ${!showDeptManager ? 'bg-kmmr-blue text-white shadow-lg' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
@@ -1534,7 +1568,7 @@ export const AdminDashboard: React.FC = () => {
         {activeTab === 'partners' && (
            <div className="space-y-6">
               {/* Toggle between Partner Types and Partners */}
-              <div className="flex gap-4 mb-4">
+              <div className="flex flex-col sm:flex-row gap-4 mb-4">
                 <button 
                   onClick={() => setShowPartnerTypeManager(false)} 
                   className={`px-4 py-2 rounded-lg font-bold transition-all ${!showPartnerTypeManager ? 'bg-kmmr-blue text-white shadow-lg' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
