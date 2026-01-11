@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Facebook, Instagram, Youtube, Mail, MapPin, Phone, Heart, Loader2, Check } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
 import { DonationModal } from './DonationModal';
@@ -16,6 +16,25 @@ export const Footer: React.FC = () => {
   const { t, language } = useLanguage();
   const [isDonationOpen, setIsDonationOpen] = useState(false);
   const [status, setStatus] = useState<'idle' | 'loading' | 'success'>('idle');
+  
+  // Logic to determine best email link behavior based on device
+  const [emailLinkProps, setEmailLinkProps] = useState({
+    href: 'https://mail.google.com/mail/?view=cm&fs=1&to=kyiv.city.yc.nycu@gmail.com',
+    target: '_blank'
+  });
+
+  useEffect(() => {
+    // Check if device is mobile to use mailto: scheme which triggers native app
+    // Otherwise keep the direct Gmail web link for desktop users
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    
+    if (isMobile) {
+      setEmailLinkProps({
+        href: 'mailto:kyiv.city.yc.nycu@gmail.com',
+        target: '_self'
+      });
+    }
+  }, []);
 
   const handleSubscribe = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -66,8 +85,8 @@ export const Footer: React.FC = () => {
               </li>
               <li className="text-gray-300 hover:text-white transition-colors">
                 <a 
-                  href="https://mail.google.com/mail/?view=cm&fs=1&to=kyiv.city.yc.nycu@gmail.com" 
-                  target="_blank" 
+                  href={emailLinkProps.href} 
+                  target={emailLinkProps.target}
                   rel="noopener noreferrer"
                   className="flex items-center gap-3 w-full"
                 >
