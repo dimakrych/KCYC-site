@@ -3,7 +3,7 @@ import { DEPARTMENTS_UK, DEPARTMENTS_EN, TEAM_MEMBERS_UK, TEAM_MEMBERS_EN } from
 import { Modal } from './ui/Modal';
 import { TeamMember, Department } from '../types';
 import { useLanguage } from '../context/LanguageContext';
-import { collection, getDocs, query } from 'firebase/firestore';
+import { collection, query, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 import { Loader2 } from 'lucide-react';
 
@@ -15,25 +15,16 @@ export const TeamSection: React.FC = () => {
   const { language, t } = useLanguage();
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        // Fetch Departments
-        const qDepts = query(collection(db, "departments"));
-        const deptSnapshot = await getDocs(qDepts);
-        const fetchedDepts: Department[] = deptSnapshot.docs.map(doc => ({
+    setLoading(true);
+
+    // Fetch Departments (Realtime)
+    const unsubDepts = onSnapshot(query(collection(db, "departments")), (snapshot) => {
+        const fetchedDepts: Department[] = snapshot.docs.map(doc => ({
           id: doc.id,
           ...doc.data()
         } as Department));
 
-        // Fetch Team
-        const qTeam = query(collection(db, "team"));
-        const teamSnapshot = await getDocs(qTeam);
-        const fetchedTeam: TeamMember[] = teamSnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        } as TeamMember));
-
-        // Sorting Departments by 'order' field, fallback to name
+        // Sort Departments by order
         fetchedDepts.sort((a,b) => {
           const orderA = a.order !== undefined ? a.order : 999;
           const orderB = b.order !== undefined ? b.order : 999;
@@ -41,30 +32,47 @@ export const TeamSection: React.FC = () => {
           return a.name.localeCompare(b.name);
         });
 
-        // Handle Fallbacks or Sets
         if (fetchedDepts.length > 0) {
            setDepartments(fetchedDepts);
         } else {
-           // Fallback to constants if DB is empty
+           // Fallback to constants if DB is empty but typically DB has data
            setDepartments(language === 'uk' ? DEPARTMENTS_UK as any : DEPARTMENTS_EN as any);
         }
+    }, (error) => {
+        console.warn("Error fetching departments:", error);
+        setDepartments(language === 'uk' ? DEPARTMENTS_UK as any : DEPARTMENTS_EN as any);
+    });
+
+    // Fetch Team (Realtime)
+    const unsubTeam = onSnapshot(query(collection(db, "team")), (snapshot) => {
+        const fetchedTeam: TeamMember[] = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        } as TeamMember));
+
+        // Sort Team Members by order
+        fetchedTeam.sort((a,b) => {
+          const orderA = a.order !== undefined ? a.order : 999;
+          const orderB = b.order !== undefined ? b.order : 999;
+          return orderA - orderB;
+        });
 
         if (fetchedTeam.length > 0) {
           setTeamMembers(fetchedTeam);
         } else {
           setTeamMembers(language === 'uk' ? TEAM_MEMBERS_UK : TEAM_MEMBERS_EN);
         }
-
-      } catch (error) {
-        console.warn("Using static data due to error:", error);
-        setDepartments(language === 'uk' ? DEPARTMENTS_UK as any : DEPARTMENTS_EN as any);
-        setTeamMembers(language === 'uk' ? TEAM_MEMBERS_UK : TEAM_MEMBERS_EN);
-      } finally {
         setLoading(false);
-      }
-    };
+    }, (error) => {
+        console.warn("Error fetching team:", error);
+        setTeamMembers(language === 'uk' ? TEAM_MEMBERS_UK : TEAM_MEMBERS_EN);
+        setLoading(false);
+    });
 
-    fetchData();
+    return () => {
+        unsubDepts();
+        unsubTeam();
+    };
   }, [language]);
 
   // Function to get members for a specific department
