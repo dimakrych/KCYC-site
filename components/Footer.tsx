@@ -53,17 +53,33 @@ export const Footer: React.FC = () => {
           <div className="space-y-4">
             <h4 className="text-lg font-bold uppercase tracking-wider mb-4">{t('footer.contacts')}</h4>
             <ul className="space-y-3">
-              <li className="flex items-start gap-3 text-gray-300 hover:text-white transition-colors">
-                <MapPin className="w-5 h-5 text-kmmr-pink shrink-0" />
-                <a href="https://maps.app.goo.gl/oLVazPLxvkL6ibrv6" className="text-sm">м. Київ, вул. Хрещатик, 36</a>
+              <li className="text-gray-300 hover:text-white transition-colors">
+                <a 
+                  href="https://maps.app.goo.gl/oLVazPLxvkL6ibrv6" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="flex items-start gap-3 w-full"
+                >
+                  <MapPin className="w-5 h-5 text-kmmr-pink shrink-0" />
+                  <span className="text-sm">м. Київ, вул. Хрещатик, 36</span>
+                </a>
               </li>
-              <li className="flex items-center gap-3 text-gray-300 hover:text-white transition-colors">
-                <Mail className="w-5 h-5 text-kmmr-pink shrink-0" />
-                <a href="https://mail.google.com/mail/?view=cm&fs=1&to=kyiv.city.yc.nycu@gmail.com" className="text-sm">kyiv.city.yc.nycu@gmail.com</a>
+              <li className="text-gray-300 hover:text-white transition-colors">
+                <a 
+                  href="https://mail.google.com/mail/?view=cm&fs=1&to=kyiv.city.yc.nycu@gmail.com" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-3 w-full"
+                >
+                  <Mail className="w-5 h-5 text-kmmr-pink shrink-0" />
+                  <span className="text-sm">kyiv.city.yc.nycu@gmail.com</span>
+                </a>
               </li>
-              <li className="flex items-center gap-3 text-gray-300 hover:text-white transition-colors">
-                <Phone className="w-5 h-5 text-kmmr-pink shrink-0" />
-                <a href="tel:+380440000000" className="text-sm">+38 (044) 000-00-00</a>
+              <li className="text-gray-300 hover:text-white transition-colors">
+                <a href="tel:+380440000000" className="flex items-center gap-3 w-full">
+                  <Phone className="w-5 h-5 text-kmmr-pink shrink-0" />
+                  <span className="text-sm">+38 (044) 000-00-00</span>
+                </a>
               </li>
             </ul>
           </div>
