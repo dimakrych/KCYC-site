@@ -710,7 +710,7 @@ export const AdminDashboard: React.FC = () => {
     if (!newOpp.title || !newOpp.deadline) return;
     setLoading(true);
     try {
-      await addDoc(collection(db, "opportunities"), {
+      const oppPayload = {
         title: newOpp.title || '',
         titleEn: newOpp.titleEn || newOpp.title || '',
         description: newOpp.description || '',
@@ -719,7 +719,14 @@ export const AdminDashboard: React.FC = () => {
         type: newOpp.type || 'Event',
         link: '#', 
         questions: newOpp.questions || []
-      });
+      };
+
+      if (newOpp.id) {
+         await updateDoc(doc(db, "opportunities", newOpp.id), oppPayload);
+      } else {
+         await addDoc(collection(db, "opportunities"), oppPayload);
+      }
+      
       setIsAddingOpp(false);
       setNewOpp({ type: 'Volunteering', questions: [] });
     } catch (err: any) {
@@ -1011,7 +1018,7 @@ export const AdminDashboard: React.FC = () => {
               <div className="bg-white p-6 rounded-2xl shadow-lg border border-kmmr-pink/20 mb-6 animate-fade-in-up">
                  <div className="flex justify-between items-start mb-6">
                    <h3 className="font-bold text-xl text-kmmr-blue">Додати/Редагувати Проєкт</h3>
-                   <button onClick={() => setIsAddingProject(false)} className="text-gray-400 hover:text-gray-600"><XCircle size={24}/></button>
+                   <button onClick={() => { setIsAddingProject(false); setNewProject({ questions: [] }); setFileToUpload(null); }} className="text-gray-400 hover:text-gray-600"><XCircle size={24}/></button>
                 </div>
                 <form onSubmit={handleAddProject} className="space-y-6">
                     {/* ... Project Form fields ... */}
@@ -1067,13 +1074,13 @@ export const AdminDashboard: React.FC = () => {
                   </div>
                   <div className="flex gap-2 pt-4 border-t border-gray-100">
                     <button type="submit" disabled={loading} className="bg-kmmr-green text-white px-6 py-3 rounded-lg font-bold hover:bg-opacity-90 flex items-center gap-2">{loading ? <Loader2 className="animate-spin"/> : <Save size={18} />} Зберегти</button>
-                    <button type="button" onClick={() => setIsAddingProject(false)} className="bg-gray-100 text-gray-700 px-6 py-3 rounded-lg font-bold">Скасувати</button>
+                    <button type="button" onClick={() => { setIsAddingProject(false); setNewProject({ questions: [] }); setFileToUpload(null); }} className="bg-gray-100 text-gray-700 px-6 py-3 rounded-lg font-bold">Скасувати</button>
                   </div>
                 </form>
               </div>
              )}
              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-               <div onClick={() => setIsAddingProject(true)} className="bg-gray-50 border-2 border-dashed border-gray-300 rounded-2xl flex flex-col items-center justify-center h-96 cursor-pointer hover:bg-gray-100 transition-colors group">
+               <div onClick={() => { setNewProject({ questions: [] }); setFileToUpload(null); setIsAddingProject(true); }} className="bg-gray-50 border-2 border-dashed border-gray-300 rounded-2xl flex flex-col items-center justify-center h-96 cursor-pointer hover:bg-gray-100 transition-colors group">
                  <Plus className="w-8 h-8 text-kmmr-blue" /><span className="font-bold text-gray-500 text-lg mt-2">Створити Проєкт</span>
                </div>
                {projects.map((project, index) => (
