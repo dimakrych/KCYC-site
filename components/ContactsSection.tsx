@@ -37,9 +37,7 @@ export const ContactsSection: React.FC = () => {
 
   return (
     <div className="py-20 bg-kmmr-blue text-white relative overflow-hidden">
-      {/* Background patterns */}
-      <div className="absolute top-0 right-0 w-1/2 h-full bg-white/5 skew-x-12 transform translate-x-20"></div>
-
+      
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         <div className="text-center mb-12">
           <h2 className="text-4xl font-black mb-4">{t('contacts.title')}</h2>

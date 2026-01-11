@@ -10,6 +10,7 @@ export interface TeamMember {
   bio: string;
   bioEn?: string;
   email?: string;
+  instagram?: string; // New field for Instagram link
   image: string;
   details: string[]; // Bullet points for popup
   detailsEn?: string[]; // English Bullet points

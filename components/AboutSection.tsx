@@ -133,8 +133,8 @@ export const AboutSection: React.FC = () => {
                   {/* Dot on Line */}
                   <div className={`absolute left-[-6px] md:left-[calc(20%-9px)] top-6 w-5 h-5 ${event.bg} rounded-full border-4 border-white dark:border-gray-800 shadow z-10`}></div>
 
-                  {/* Content Card Column */}
-                  <div className="md:col-span-4 pl-8 md:pl-0">
+                  {/* Content Card Column - Increased left padding for separation */}
+                  <div className="md:col-span-4 pl-12 md:pl-12">
                      <div className="bg-gray-50 dark:bg-gray-800 p-6 rounded-2xl shadow-sm hover:shadow-md transition-shadow relative">
                         {/* Mobile Year Badge */}
                         <span className="md:hidden absolute top-4 right-4 text-sm font-black text-gray-300 dark:text-gray-600 uppercase">

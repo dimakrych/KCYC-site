@@ -5,7 +5,7 @@ import { TeamMember, Department } from '../types';
 import { useLanguage } from '../context/LanguageContext';
 import { collection, query, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Instagram } from 'lucide-react';
 
 export const TeamSection: React.FC = () => {
   const [selectedMember, setSelectedMember] = useState<TeamMember | null>(null);
@@ -203,14 +203,28 @@ export const TeamSection: React.FC = () => {
                  </ul>
               </div>
 
-              {selectedMember.email && (
-                <a 
-                  href={`mailto:${selectedMember.email}`}
-                  className="inline-flex items-center gap-2 text-kmmr-blue dark:text-blue-400 hover:text-kmmr-pink font-semibold transition-colors"
-                >
-                  {t('team.modal.contact')} {selectedMember.email}
-                </a>
-              )}
+              <div className="flex flex-wrap items-center gap-4">
+                {selectedMember.email && (
+                  <a 
+                    href={`mailto:${selectedMember.email}`}
+                    className="inline-flex items-center gap-2 text-kmmr-blue dark:text-blue-400 hover:text-kmmr-pink font-semibold transition-colors"
+                  >
+                    {t('team.modal.contact')} {selectedMember.email}
+                  </a>
+                )}
+
+                {selectedMember.instagram && (
+                  <a 
+                    href={selectedMember.instagram}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center hover:bg-gradient-to-tr hover:from-yellow-400 hover:via-red-500 hover:to-purple-600 hover:text-white transition-all duration-300 transform hover:-translate-y-1 text-gray-600 dark:text-gray-300"
+                    title="Instagram"
+                  >
+                    <Instagram className="w-5 h-5" />
+                  </a>
+                )}
+              </div>
             </div>
           </div>
         )}
