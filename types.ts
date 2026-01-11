@@ -140,3 +140,9 @@ export interface ContactSubmission {
   status: 'new' | 'contacted' | 'approved' | 'rejected';
   createdAt: string;
 }
+
+export interface NewsletterSubscriber {
+  id: string;
+  email: string;
+  createdAt: any;
+}

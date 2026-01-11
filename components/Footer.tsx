@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { Facebook, Instagram, Youtube, Mail, MapPin, Phone, Heart } from 'lucide-react';
+import { Facebook, Instagram, Youtube, Mail, MapPin, Phone, Heart, Loader2, Check } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
 import { DonationModal } from './DonationModal';
 import { Logo } from './Logo';
+import { subscribeToNewsletter } from '../services/api';
 
 const TikTokIcon = ({ className }: { className?: string }) => (
   <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
@@ -14,11 +15,23 @@ export const Footer: React.FC = () => {
   const [email, setEmail] = useState('');
   const { t, language } = useLanguage();
   const [isDonationOpen, setIsDonationOpen] = useState(false);
+  const [status, setStatus] = useState<'idle' | 'loading' | 'success'>('idle');
 
-  const handleSubscribe = (e: React.FormEvent) => {
+  const handleSubscribe = async (e: React.FormEvent) => {
     e.preventDefault();
-    alert('Thank you for subscribing!');
-    setEmail('');
+    if (!email) return;
+    setStatus('loading');
+    
+    try {
+      await subscribeToNewsletter(email);
+      setStatus('success');
+      setEmail('');
+      setTimeout(() => setStatus('idle'), 3000);
+    } catch (error) {
+      console.error(error);
+      setStatus('idle');
+      alert('Something went wrong. Please try again.');
+    }
   };
 
   return (
@@ -69,13 +82,17 @@ export const Footer: React.FC = () => {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="w-full px-4 py-2 rounded bg-white/10 border border-white/20 text-white placeholder-gray-400 focus:outline-none focus:border-kmmr-green transition-colors"
+                disabled={status === 'loading' || status === 'success'}
+                className="w-full px-4 py-2 rounded bg-white/10 border border-white/20 text-white placeholder-gray-400 focus:outline-none focus:border-kmmr-green transition-colors disabled:opacity-50"
               />
               <button
                 type="submit"
-                className="w-full bg-kmmr-green text-white font-bold py-2 rounded hover:bg-opacity-90 transition-colors uppercase text-sm tracking-wide"
+                disabled={status === 'loading' || status === 'success'}
+                className="w-full bg-kmmr-green text-white font-bold py-2 rounded hover:bg-opacity-90 transition-colors uppercase text-sm tracking-wide flex items-center justify-center gap-2 disabled:cursor-not-allowed"
               >
-                {t('footer.subscribe')}
+                {status === 'loading' ? <Loader2 className="animate-spin w-4 h-4" /> : 
+                 status === 'success' ? <Check className="w-4 h-4" /> :
+                 t('footer.subscribe')}
               </button>
             </form>
           </div>

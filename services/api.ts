@@ -84,3 +84,17 @@ export const submitApplicationForm = async (data: ApplicationFormData): Promise<
     throw error;
   }
 };
+
+// Функція підписки на розсилку
+export const subscribeToNewsletter = async (email: string): Promise<{ success: boolean; message: string }> => {
+  try {
+    await addDoc(collection(db, "newsletter_subscribers"), {
+      email,
+      createdAt: serverTimestamp()
+    });
+    return { success: true, message: 'Ви успішно підписалися!' };
+  } catch (error) {
+    console.error("Error subscribing:", error);
+    throw error;
+  }
+};

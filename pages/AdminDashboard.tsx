@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
-  Users, FileText, Calendar, LogOut, Plus, Search, Trash2, Edit2, Download, Briefcase, CheckCircle, XCircle, Clock, Loader2, Save, GripVertical, List, Languages, Image as ImageIcon, Smile, Filter, ChevronDown, Building2, Palette, Handshake, Link as LinkIcon, Settings
+  Users, FileText, Calendar, LogOut, Plus, Search, Trash2, Edit2, Download, Briefcase, CheckCircle, XCircle, Clock, Loader2, Save, GripVertical, List, Languages, Image as ImageIcon, Smile, Filter, ChevronDown, Building2, Palette, Handshake, Link as LinkIcon, Settings, Mail
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { 
@@ -9,7 +9,7 @@ import {
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '../firebaseConfig';
 import { useAuth } from '../context/AuthContext';
-import { ContactSubmission, DocumentItem, Project, Opportunity, FormQuestion, TeamMember, Department, PartnerItem, PartnerType } from '../types';
+import { ContactSubmission, DocumentItem, Project, Opportunity, FormQuestion, TeamMember, Department, PartnerItem, PartnerType, NewsletterSubscriber } from '../types';
 // @ts-ignore - using importmap for xlsx
 import { utils, writeFile } from 'xlsx';
 
@@ -29,6 +29,7 @@ export const AdminDashboard: React.FC = () => {
   const [departments, setDepartments] = useState<Department[]>([]);
   const [partners, setPartners] = useState<PartnerItem[]>([]);
   const [partnerTypes, setPartnerTypes] = useState<PartnerType[]>([]);
+  const [newsletterSubscribers, setNewsletterSubscribers] = useState<NewsletterSubscriber[]>([]);
 
   // Drag and Drop State
   const [draggedDeptIndex, setDraggedDeptIndex] = useState<number | null>(null);
@@ -39,7 +40,7 @@ export const AdminDashboard: React.FC = () => {
   const [draggedMemberIndex, setDraggedMemberIndex] = useState<number | null>(null);
 
   // Submission Filters
-  const [submissionFilter, setSubmissionFilter] = useState<'all' | 'contact' | 'application'>('all');
+  const [submissionFilter, setSubmissionFilter] = useState<'all' | 'contact' | 'application' | 'newsletter'>('all');
   const [selectedEventFilter, setSelectedEventFilter] = useState<string>('all');
 
   // Team Filters & State
@@ -96,6 +97,11 @@ export const AdminDashboard: React.FC = () => {
         const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
         setSubmissions(data);
       }, (error) => console.error("Submissions listener error:", error));
+
+      const unsubNewsletter = onSnapshot(query(collection(db, "newsletter_subscribers"), orderBy("createdAt", "desc")), (snapshot) => {
+        const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as NewsletterSubscriber));
+        setNewsletterSubscribers(data);
+      }, (error) => console.error("Newsletter listener error:", error));
 
       const unsubProjects = onSnapshot(collection(db, "projects"), (snapshot) => {
         const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Project));
@@ -171,6 +177,7 @@ export const AdminDashboard: React.FC = () => {
 
       return () => {
         unsubSubmissions();
+        unsubNewsletter();
         unsubProjects();
         unsubDocs();
         unsubOpps();
@@ -364,6 +371,7 @@ export const AdminDashboard: React.FC = () => {
       // 1. Filter by Type
       if (submissionFilter === 'application' && !isApp) return false;
       if (submissionFilter === 'contact' && isApp) return false;
+      // Newsletter is handled separately in the UI logic because it uses a different array
 
       // 2. Filter by Event (only if showing applications or all)
       if (selectedEventFilter !== 'all') {
@@ -379,6 +387,28 @@ export const AdminDashboard: React.FC = () => {
 
   // --- EXPORT TO EXCEL ---
   const downloadExcel = () => {
+    if (submissionFilter === 'newsletter') {
+      // Export Newsletter
+      if (newsletterSubscribers.length === 0) {
+        alert("Немає підписників для експорту");
+        return;
+      }
+      const formattedData = newsletterSubscribers.map((sub, idx) => ({
+        "ID": idx + 1,
+        "Email": sub.email,
+        "Дата підписки": sub.createdAt && typeof sub.createdAt === 'object' 
+          ? new Date((sub.createdAt as any).seconds * 1000).toLocaleString('uk-UA') 
+          : sub.createdAt || '-'
+      }));
+      
+      const worksheet = utils.json_to_sheet(formattedData);
+      const workbook = utils.book_new();
+      utils.book_append_sheet(workbook, worksheet, "Підписники");
+      worksheet["!cols"] = [{ wch: 10 }, { wch: 30 }, { wch: 25 }];
+      writeFile(workbook, `Newsletter_Export_${new Date().toISOString().split('T')[0]}.xlsx`);
+      return;
+    }
+
     const dataToExport = getFilteredSubmissions();
     if (dataToExport.length === 0) {
       alert("Немає даних для експорту");
@@ -858,10 +888,16 @@ export const AdminDashboard: React.FC = () => {
                   >
                     Реєстрації
                   </button>
+                  <button 
+                    onClick={() => setSubmissionFilter('newsletter')}
+                    className={`px-4 py-2 rounded-md text-sm font-bold transition-all ${submissionFilter === 'newsletter' ? 'bg-white shadow text-kmmr-blue' : 'text-gray-500 hover:text-gray-700'}`}
+                  >
+                    Розсилка
+                  </button>
                 </div>
                 
                 {/* Event Dropdown Filter */}
-                {submissionFilter !== 'contact' && uniqueEvents.length > 0 && (
+                {submissionFilter !== 'contact' && submissionFilter !== 'newsletter' && uniqueEvents.length > 0 && (
                    <div className="relative">
                       <select 
                         value={selectedEventFilter}
@@ -883,86 +919,125 @@ export const AdminDashboard: React.FC = () => {
                     <Download size={16} /> Експорт (XLSX)
                  </button>
                  <div className="text-sm text-gray-500 font-semibold px-2">
-                    Всього: {filteredSubmissions.length}
+                    Всього: {submissionFilter === 'newsletter' ? newsletterSubscribers.length : filteredSubmissions.length}
                  </div>
               </div>
             </div>
 
             <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
-               {/* ... Table ... */}
-              {filteredSubmissions.length === 0 ? (
-                 <div className="p-12 text-center flex flex-col items-center text-gray-400">
-                    <Search className="w-12 h-12 mb-2 opacity-50"/>
-                    <p>Заявки відсутні в цій категорії.</p>
-                 </div>
-              ) : (
-              <table className="w-full text-left">
-                <thead className="bg-gray-50 border-b border-gray-100">
-                  <tr>
-                    <th className="p-4 text-sm font-bold text-gray-500 uppercase">Ім'я / Дата</th>
-                    <th className="p-4 text-sm font-bold text-gray-500 uppercase">Тип заявки</th>
-                    <th className="p-4 text-sm font-bold text-gray-500 uppercase">Контакти</th>
-                    <th className="p-4 text-sm font-bold text-gray-500 uppercase">Деталі</th>
-                    <th className="p-4 text-sm font-bold text-gray-500 uppercase">Статус</th>
-                    <th className="p-4 text-sm font-bold text-gray-500 uppercase">Дії</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {filteredSubmissions.map(sub => (
-                    <tr key={sub.id} className="hover:bg-gray-50 transition-colors">
-                      <td className="p-4">
-                        <div className="font-bold text-gray-800">{sub.name}</div>
-                        <div className="text-xs text-gray-500">
-                          {sub.createdAt && typeof sub.createdAt === 'object' 
-                            ? new Date((sub.createdAt as any).seconds * 1000).toLocaleDateString() 
-                            : sub.createdAt}
-                        </div>
-                      </td>
-                      <td className="p-4">
-                          {(sub as any).formType === 'opportunity_application' ? (
-                               <div className="flex flex-col">
-                                  <span className="text-[10px] font-black uppercase tracking-wider text-kmmr-purple bg-purple-50 px-2 py-0.5 rounded w-fit mb-1">Реєстрація</span>
-                                  <span className="text-sm font-bold text-gray-800 leading-tight">{(sub as any).opportunityTitle}</span>
-                                  <span className="text-xs text-gray-500">{(sub as any).type}</span>
-                               </div>
-                          ) : (
-                               <div className="flex flex-col">
-                                  <span className="text-[10px] font-black uppercase tracking-wider text-blue-600 bg-blue-50 px-2 py-0.5 rounded w-fit mb-1">Контакт</span>
-                                  <span className="text-sm font-bold text-gray-700">{sub.department || 'Загальне питання'}</span>
-                               </div>
-                          )}
-                      </td>
-                      <td className="p-4"><div className="text-sm font-medium">{sub.email}</div><div className="text-sm text-gray-500">{sub.phone}</div></td>
-                      <td className="p-4">
-                          {(sub as any).answers ? (
-                               <div className="space-y-1 text-xs text-gray-600 max-w-xs">
-                                   {Object.entries((sub as any).answers).map(([key, val]) => (
-                                       <div key={key} className="truncate group relative cursor-help">
-                                           <span className="font-bold text-gray-700">{key.replace(/_/g, ' ')}:</span> {String(val)}
-                                           <div className="absolute hidden group-hover:block z-10 bg-black text-white p-2 rounded text-xs w-64 -translate-y-full left-0 shadow-lg">
-                                             {String(val)}
-                                           </div>
-                                       </div>
-                                   ))}
-                               </div>
-                          ) : (
-                               <div className="text-xs text-gray-600 max-w-xs line-clamp-3 italic" title={sub.motivation}>"{sub.motivation}"</div>
-                          )}
-                      </td>
-                      <td className="p-4"><span className={`px-2 py-1 rounded-full text-xs font-bold uppercase ${getStatusColor(sub.status)}`}>{sub.status}</span></td>
-                      <td className="p-4">
-                        <div className="flex gap-2">
-                          <button onClick={() => updateStatus(sub.id, 'contacted')} title="Зв'язались" className="p-1 text-yellow-500 hover:bg-yellow-50 rounded"><Clock size={18}/></button>
-                          <button onClick={() => updateStatus(sub.id, 'approved')} title="Прийнято" className="p-1 text-green-500 hover:bg-green-50 rounded"><CheckCircle size={18}/></button>
-                          <button onClick={() => updateStatus(sub.id, 'rejected')} title="Відхилено" className="p-1 text-red-500 hover:bg-red-50 rounded"><XCircle size={18}/></button>
-                          <button onClick={() => deleteItem('submissions', sub.id)} title="Видалити" className="p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded"><Trash2 size={18}/></button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              )}
+               {/* --- NEWSLETTER TABLE --- */}
+               {submissionFilter === 'newsletter' ? (
+                 newsletterSubscribers.length === 0 ? (
+                   <div className="p-12 text-center flex flex-col items-center text-gray-400">
+                      <Mail className="w-12 h-12 mb-2 opacity-50"/>
+                      <p>Підписників розсилки поки немає.</p>
+                   </div>
+                 ) : (
+                   <table className="w-full text-left">
+                      <thead className="bg-gray-50 border-b border-gray-100">
+                        <tr>
+                          <th className="p-4 text-sm font-bold text-gray-500 uppercase">ID</th>
+                          <th className="p-4 text-sm font-bold text-gray-500 uppercase">Email</th>
+                          <th className="p-4 text-sm font-bold text-gray-500 uppercase">Дата підписки</th>
+                          <th className="p-4 text-sm font-bold text-gray-500 uppercase">Дії</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100">
+                        {newsletterSubscribers.map((sub, idx) => (
+                          <tr key={sub.id} className="hover:bg-gray-50 transition-colors">
+                            <td className="p-4 text-sm font-bold text-gray-400">#{idx + 1}</td>
+                            <td className="p-4">
+                              <div className="font-bold text-gray-800">{sub.email}</div>
+                            </td>
+                            <td className="p-4 text-sm text-gray-500">
+                              {sub.createdAt && typeof sub.createdAt === 'object' 
+                                ? new Date((sub.createdAt as any).seconds * 1000).toLocaleString('uk-UA') 
+                                : sub.createdAt || '-'}
+                            </td>
+                            <td className="p-4">
+                              <button onClick={() => deleteItem('newsletter_subscribers', sub.id)} title="Видалити" className="p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded"><Trash2 size={18}/></button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                   </table>
+                 )
+               ) : (
+                 /* --- EXISTING SUBMISSIONS TABLE --- */
+                 filteredSubmissions.length === 0 ? (
+                   <div className="p-12 text-center flex flex-col items-center text-gray-400">
+                      <Search className="w-12 h-12 mb-2 opacity-50"/>
+                      <p>Заявки відсутні в цій категорії.</p>
+                   </div>
+                 ) : (
+                  <table className="w-full text-left">
+                    <thead className="bg-gray-50 border-b border-gray-100">
+                      <tr>
+                        <th className="p-4 text-sm font-bold text-gray-500 uppercase">Ім'я / Дата</th>
+                        <th className="p-4 text-sm font-bold text-gray-500 uppercase">Тип заявки</th>
+                        <th className="p-4 text-sm font-bold text-gray-500 uppercase">Контакти</th>
+                        <th className="p-4 text-sm font-bold text-gray-500 uppercase">Деталі</th>
+                        <th className="p-4 text-sm font-bold text-gray-500 uppercase">Статус</th>
+                        <th className="p-4 text-sm font-bold text-gray-500 uppercase">Дії</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {filteredSubmissions.map(sub => (
+                        <tr key={sub.id} className="hover:bg-gray-50 transition-colors">
+                          <td className="p-4">
+                            <div className="font-bold text-gray-800">{sub.name}</div>
+                            <div className="text-xs text-gray-500">
+                              {sub.createdAt && typeof sub.createdAt === 'object' 
+                                ? new Date((sub.createdAt as any).seconds * 1000).toLocaleDateString() 
+                                : sub.createdAt}
+                            </div>
+                          </td>
+                          <td className="p-4">
+                              {(sub as any).formType === 'opportunity_application' ? (
+                                  <div className="flex flex-col">
+                                      <span className="text-[10px] font-black uppercase tracking-wider text-kmmr-purple bg-purple-50 px-2 py-0.5 rounded w-fit mb-1">Реєстрація</span>
+                                      <span className="text-sm font-bold text-gray-800 leading-tight">{(sub as any).opportunityTitle}</span>
+                                      <span className="text-xs text-gray-500">{(sub as any).type}</span>
+                                  </div>
+                              ) : (
+                                  <div className="flex flex-col">
+                                      <span className="text-[10px] font-black uppercase tracking-wider text-blue-600 bg-blue-50 px-2 py-0.5 rounded w-fit mb-1">Контакт</span>
+                                      <span className="text-sm font-bold text-gray-700">{sub.department || 'Загальне питання'}</span>
+                                  </div>
+                              )}
+                          </td>
+                          <td className="p-4"><div className="text-sm font-medium">{sub.email}</div><div className="text-sm text-gray-500">{sub.phone}</div></td>
+                          <td className="p-4">
+                              {(sub as any).answers ? (
+                                  <div className="space-y-1 text-xs text-gray-600 max-w-xs">
+                                      {Object.entries((sub as any).answers).map(([key, val]) => (
+                                          <div key={key} className="truncate group relative cursor-help">
+                                              <span className="font-bold text-gray-700">{key.replace(/_/g, ' ')}:</span> {String(val)}
+                                              <div className="absolute hidden group-hover:block z-10 bg-black text-white p-2 rounded text-xs w-64 -translate-y-full left-0 shadow-lg">
+                                                {String(val)}
+                                              </div>
+                                          </div>
+                                      ))}
+                                  </div>
+                              ) : (
+                                  <div className="text-xs text-gray-600 max-w-xs line-clamp-3 italic" title={sub.motivation}>"{sub.motivation}"</div>
+                              )}
+                          </td>
+                          <td className="p-4"><span className={`px-2 py-1 rounded-full text-xs font-bold uppercase ${getStatusColor(sub.status)}`}>{sub.status}</span></td>
+                          <td className="p-4">
+                            <div className="flex gap-2">
+                              <button onClick={() => updateStatus(sub.id, 'contacted')} title="Зв'язались" className="p-1 text-yellow-500 hover:bg-yellow-50 rounded"><Clock size={18}/></button>
+                              <button onClick={() => updateStatus(sub.id, 'approved')} title="Прийнято" className="p-1 text-green-500 hover:bg-green-50 rounded"><CheckCircle size={18}/></button>
+                              <button onClick={() => updateStatus(sub.id, 'rejected')} title="Відхилено" className="p-1 text-red-500 hover:bg-red-50 rounded"><XCircle size={18}/></button>
+                              <button onClick={() => deleteItem('submissions', sub.id)} title="Видалити" className="p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded"><Trash2 size={18}/></button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                 )
+               )}
             </div>
           </div>
         )}
