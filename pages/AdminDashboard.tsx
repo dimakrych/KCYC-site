@@ -161,9 +161,8 @@ export const AdminDashboard: React.FC = () => {
           return orderA - orderB;
         });
         setPartnerTypes(data);
-        // Set default filter if not set and data exists
-        if (data.length > 0) {
-           setPartnerFilterType(prev => prev || data[0].id);
+        if (data.length > 0 && !partnerFilterType) {
+           setPartnerFilterType(data[0].id);
         }
       }, (error) => console.error("Partner Types listener error:", error));
 
@@ -216,7 +215,6 @@ export const AdminDashboard: React.FC = () => {
 
   // --- DRAG AND DROP HANDLERS ---
   
-  // ... (Same DnD handlers as before) ...
   const handleDragStartDept = (index: number) => setDraggedDeptIndex(index);
   const handleDropDept = async (dropIndex: number) => {
     if (draggedDeptIndex === null || draggedDeptIndex === dropIndex) return;
@@ -412,8 +410,6 @@ export const AdminDashboard: React.FC = () => {
     const worksheet = utils.json_to_sheet(formattedData);
     const workbook = utils.book_new();
     utils.book_append_sheet(workbook, worksheet, "Заявки");
-    const max_width = formattedData.reduce((w, r) => Math.max(w, Object.keys(r).length), 10);
-    worksheet["!cols"] = [ { wch: 20 }, { wch: 20 }, { wch: 10 }, { wch: 10 }, { wch: 25 }, { wch: 15 }, { wch: 25 }, { wch: 30 } ];
     const fileName = selectedEventFilter !== 'all' 
       ? `Export_${selectedEventFilter.substring(0, 20)}_${new Date().toISOString().split('T')[0]}.xlsx`
       : `Export_All_${new Date().toISOString().split('T')[0]}.xlsx`;
@@ -459,7 +455,6 @@ export const AdminDashboard: React.FC = () => {
     }
   };
 
-  // ... (Other handlers unchanged) ...
   const handleSavePartner = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newPartner.name || !newPartner.type) return;
@@ -509,7 +504,6 @@ export const AdminDashboard: React.FC = () => {
     }
   };
 
-  // ... (Reused Handlers: Team, Department, Project, Opps, Docs) ...
   const handleSaveTeamMember = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTeamMember.name || !newTeamMember.department) return;
@@ -779,7 +773,6 @@ export const AdminDashboard: React.FC = () => {
         </div>
         
         <nav className="flex-grow p-4 space-y-2">
-          {/* ... Navigation buttons ... */}
           <button onClick={() => setActiveTab('submissions')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'submissions' ? 'bg-kmmr-pink text-white' : 'hover:bg-white/10 text-gray-300'}`}>
             <Users size={20} />
             <span className="font-medium">Заявки</span>
@@ -967,7 +960,6 @@ export const AdminDashboard: React.FC = () => {
           </div>
         )}
 
-        {/* ... (Projects, Docs, Opps, Team tabs same as previous) ... */}
         {/* 2. DOCUMENTS MANAGER */}
         {activeTab === 'docs' && (
           <div className="space-y-6">
@@ -1021,8 +1013,6 @@ export const AdminDashboard: React.FC = () => {
                    <button onClick={() => setIsAddingProject(false)} className="text-gray-400 hover:text-gray-600"><XCircle size={24}/></button>
                 </div>
                 <form onSubmit={handleAddProject} className="space-y-6">
-                    {/* ... Project Form fields ... */}
-                    {/* ... (Same as before) ... */}
                     <div className="flex items-center gap-4 border-b border-gray-100 pb-2">
                      <span className="text-sm font-bold text-gray-500 flex items-center gap-1"><Languages size={16}/> Мова контенту:</span>
                      <div className="flex bg-gray-100 p-1 rounded-lg">
@@ -1110,10 +1100,9 @@ export const AdminDashboard: React.FC = () => {
            </div>
         )}
 
-        {/* 4. OPPORTUNITIES - Render logic same as before */}
+        {/* 4. OPPORTUNITIES */}
         {activeTab === 'opportunities' && (
           <div className="space-y-6">
-             {/* ... (Opportunity Logic) ... */}
               {isAddingOpp && (
                <div className="bg-white p-6 rounded-2xl shadow-xl border border-kmmr-blue/20 mb-6 animate-fade-in-up">
                  <div className="flex justify-between items-start mb-6"><h3 className="font-bold text-xl text-kmmr-blue">Конструктор Можливості</h3><button onClick={() => setIsAddingOpp(false)}><XCircle size={24}/></button></div>
@@ -1182,26 +1171,153 @@ export const AdminDashboard: React.FC = () => {
           </div>
         )}
         
-        {/* ... (Rest of component) ... */}
-        {/* ... (Team Manager) ... */}
+        {/* 5. TEAM MANAGER */}
         {activeTab === 'team' && (
            <div className="space-y-6">
-             {/* ... */}
+             {/* Team Toolbar */}
+             <div className="flex justify-between items-center bg-white p-4 rounded-xl border border-gray-200">
+               <div className="flex gap-4 items-center">
+                  {!showDeptManager && (
+                    <div className="relative">
+                       <select value={teamFilterDept} onChange={(e) => setTeamFilterDept(e.target.value)} className="appearance-none pl-4 pr-10 py-2 border rounded-lg font-bold text-sm text-gray-700 focus:outline-none focus:border-kmmr-blue cursor-pointer bg-white">
+                         <option value="all">Всі департаменти</option>
+                         {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                       </select>
+                       <ChevronDown size={16} className="absolute right-3 top-3 text-gray-400 pointer-events-none" />
+                    </div>
+                  )}
+               </div>
+               <button onClick={() => setShowDeptManager(!showDeptManager)} className="text-sm font-bold text-kmmr-blue hover:underline flex items-center gap-2">
+                 {showDeptManager ? <><Users size={16}/> До списку команди</> : <><Settings size={16}/> Керувати департаментами</>}
+               </button>
+             </div>
+
              {/* DEPARTMENT MANAGER VIEW */}
              {showDeptManager ? (
                <div className="space-y-6">
-                  {/* ... */}
-                  {/* Departments List with Drag and Drop */}
+                  {isAddingDept && (
+                    <form onSubmit={handleSaveDepartment} className="bg-white p-6 rounded-2xl border border-blue-100 animate-fade-in-up">
+                        <div className="flex justify-between items-start mb-4"><h3 className="font-bold text-lg">Департамент</h3><button type="button" onClick={() => setIsAddingDept(false)}><XCircle size={20}/></button></div>
+                        <div className="flex items-center gap-4 mb-4">
+                           <button type="button" onClick={() => setDeptLang('uk')} className={`px-2 py-1 rounded text-xs font-bold ${deptLang === 'uk' ? 'bg-blue-100 text-blue-700' : 'text-gray-500'}`}>UA</button>
+                           <button type="button" onClick={() => setDeptLang('en')} className={`px-2 py-1 rounded text-xs font-bold ${deptLang === 'en' ? 'bg-blue-100 text-blue-700' : 'text-gray-500'}`}>EN</button>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                           <div>
+                              <label className="text-xs font-bold uppercase text-gray-500">Назва</label>
+                              {deptLang === 'uk' ? <input className="border p-2 rounded w-full" value={newDept.name || ''} onChange={e => setNewDept({...newDept, name: e.target.value})} /> 
+                                                : <input className="border p-2 rounded w-full" value={newDept.nameEn || ''} onChange={e => setNewDept({...newDept, nameEn: e.target.value})} />}
+                           </div>
+                           <div>
+                              <label className="text-xs font-bold uppercase text-gray-500">Опис</label>
+                              {deptLang === 'uk' ? <input className="border p-2 rounded w-full" value={newDept.description || ''} onChange={e => setNewDept({...newDept, description: e.target.value})} /> 
+                                                : <input className="border p-2 rounded w-full" value={newDept.descriptionEn || ''} onChange={e => setNewDept({...newDept, descriptionEn: e.target.value})} />}
+                           </div>
+                           <div>
+                             <label className="text-xs font-bold uppercase text-gray-500">Колір (Tailwind або Hex)</label>
+                             <input className="border p-2 rounded w-full" value={newDept.color || ''} onChange={e => setNewDept({...newDept, color: e.target.value})} />
+                           </div>
+                           <div>
+                              <label className="text-xs font-bold uppercase text-gray-500">Іконка</label>
+                              <input type="file" onChange={e => setFileToUpload(e.target.files ? e.target.files[0] : null)} className="w-full text-sm mt-1" />
+                           </div>
+                        </div>
+                        <button type="submit" disabled={loading} className="mt-4 bg-kmmr-green text-white px-6 py-2 rounded-lg font-bold">{loading ? <Loader2 className="animate-spin"/> : 'Зберегти'}</button>
+                    </form>
+                  )}
+
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                     {/* ... */}
+                     <div onClick={() => setIsAddingDept(true)} className="border-2 border-dashed border-gray-300 rounded-xl flex items-center justify-center h-32 cursor-pointer hover:bg-gray-50">
+                        <Plus className="text-gray-400"/>
+                     </div>
+                     {departments.map((dept, idx) => (
+                       <div key={dept.id} draggable onDragStart={() => handleDragStartDept(idx)} onDragOver={handleDragOver} onDrop={() => handleDropDept(idx)} className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex items-center justify-between cursor-move">
+                          <div className="flex items-center gap-3">
+                             <div className={`w-10 h-10 rounded flex items-center justify-center text-white ${dept.color.startsWith('bg-') ? dept.color : ''}`} style={{ backgroundColor: dept.color.startsWith('bg-') ? undefined : dept.color }}>
+                                {typeof dept.icon === 'string' ? <img src={dept.icon} className="w-6 h-6 invert brightness-0" alt=""/> : <Building2 size={20}/>}
+                             </div>
+                             <div><h4 className="font-bold">{dept.name}</h4><p className="text-xs text-gray-500">{dept.description}</p></div>
+                          </div>
+                          <div className="flex gap-2">
+                             <button onClick={() => { setNewDept(dept); setIsAddingDept(true); }} className="text-blue-500"><Edit2 size={16}/></button>
+                             <button onClick={() => deleteItem('departments', dept.id)} className="text-red-500"><Trash2 size={16}/></button>
+                          </div>
+                       </div>
+                     ))}
                   </div>
                </div>
              ) : (
-               /* ... (Team Members View) ... */
+               /* TEAM MEMBERS VIEW */
                 <div className="space-y-6">
-                 {/* ... */}
+                 {isAddingTeam && (
+                    <form onSubmit={handleSaveTeamMember} className="bg-white p-6 rounded-2xl border border-gray-200 animate-fade-in-up">
+                       <div className="flex justify-between items-start mb-6"><h3 className="font-bold text-xl">Член Команди</h3><button type="button" onClick={() => setIsAddingTeam(false)}><XCircle size={24}/></button></div>
+                       <div className="flex items-center gap-4 border-b border-gray-100 pb-4 mb-4">
+                           <span className="text-sm font-bold text-gray-500">Мова:</span>
+                           <div className="flex bg-gray-100 p-1 rounded-lg">
+                              <button type="button" onClick={() => setTeamLang('uk')} className={`px-3 py-1 rounded text-xs font-bold ${teamLang === 'uk' ? 'bg-white shadow' : 'text-gray-500'}`}>UA</button>
+                              <button type="button" onClick={() => setTeamLang('en')} className={`px-3 py-1 rounded text-xs font-bold ${teamLang === 'en' ? 'bg-white shadow' : 'text-gray-500'}`}>EN</button>
+                           </div>
+                       </div>
+                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                           <div className="space-y-4">
+                              <div><label className="text-xs font-bold uppercase text-gray-500">Ім'я</label>
+                                 {teamLang === 'uk' ? <input className="border p-2 rounded w-full" value={newTeamMember.name || ''} onChange={e => setNewTeamMember({...newTeamMember, name: e.target.value})} required/>
+                                                   : <input className="border p-2 rounded w-full" value={newTeamMember.nameEn || ''} onChange={e => setNewTeamMember({...newTeamMember, nameEn: e.target.value})}/>}
+                              </div>
+                              <div><label className="text-xs font-bold uppercase text-gray-500">Роль</label>
+                                 {teamLang === 'uk' ? <input className="border p-2 rounded w-full" value={newTeamMember.role || ''} onChange={e => setNewTeamMember({...newTeamMember, role: e.target.value})}/>
+                                                   : <input className="border p-2 rounded w-full" value={newTeamMember.roleEn || ''} onChange={e => setNewTeamMember({...newTeamMember, roleEn: e.target.value})}/>}
+                              </div>
+                              <div><label className="text-xs font-bold uppercase text-gray-500">Департамент</label>
+                                 <select className="border p-2 rounded w-full" value={newTeamMember.department || ''} onChange={e => setNewTeamMember({...newTeamMember, department: e.target.value})} required>
+                                    <option value="">Оберіть...</option>
+                                    {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                                 </select>
+                              </div>
+                               <div><label className="text-xs font-bold uppercase text-gray-500">Email</label><input className="border p-2 rounded w-full" value={newTeamMember.email || ''} onChange={e => setNewTeamMember({...newTeamMember, email: e.target.value})}/></div>
+                           </div>
+                           <div className="space-y-4">
+                              <div><label className="text-xs font-bold uppercase text-gray-500">Біо (Цитата)</label>
+                                 {teamLang === 'uk' ? <textarea className="border p-2 rounded w-full h-20" value={newTeamMember.bio || ''} onChange={e => setNewTeamMember({...newTeamMember, bio: e.target.value})}/>
+                                                   : <textarea className="border p-2 rounded w-full h-20" value={newTeamMember.bioEn || ''} onChange={e => setNewTeamMember({...newTeamMember, bioEn: e.target.value})}/>}
+                              </div>
+                              <div><label className="text-xs font-bold uppercase text-gray-500">Деталі (список через Enter)</label>
+                                 {teamLang === 'uk' ? <textarea className="border p-2 rounded w-full h-24" value={teamDetailsStr} onChange={e => setTeamDetailsStr(e.target.value)} placeholder="Кожен пункт з нового рядка"/>
+                                                   : <textarea className="border p-2 rounded w-full h-24" value={teamDetailsEnStr} onChange={e => setTeamDetailsEnStr(e.target.value)} placeholder="Each point on new line"/>}
+                              </div>
+                              <div><label className="text-xs font-bold uppercase text-gray-500">Фото</label><input type="file" onChange={e => setFileToUpload(e.target.files ? e.target.files[0] : null)} className="w-full text-sm"/></div>
+                           </div>
+                       </div>
+                       <button type="submit" disabled={loading} className="mt-6 bg-kmmr-green text-white px-8 py-3 rounded-xl font-bold">{loading ? <Loader2 className="animate-spin"/> : 'Зберегти'}</button>
+                    </form>
+                 )}
+
                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                     {/* ... */}
+                     <div onClick={() => setIsAddingTeam(true)} className="bg-gray-50 border-2 border-dashed border-gray-300 rounded-2xl flex flex-col items-center justify-center h-80 cursor-pointer hover:bg-gray-100"><Plus size={32} className="text-gray-400"/><span className="text-gray-500 font-bold mt-2">Додати учасника</span></div>
+                     
+                     {teamMembers.filter(m => teamFilterDept === 'all' || m.department === teamFilterDept).map((member, idx) => (
+                       <div key={member.id} draggable onDragStart={() => handleDragStartMember(idx)} onDragOver={handleDragOver} onDrop={() => handleDropMember(idx)} className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden cursor-move group">
+                          <div className="h-48 bg-gray-200 relative">
+                             <img src={member.image} alt="" className="w-full h-full object-cover"/>
+                             <div className="absolute top-2 right-2 bg-black/50 text-white p-1 rounded opacity-0 group-hover:opacity-100"><GripVertical size={16}/></div>
+                          </div>
+                          <div className="p-4">
+                             <h4 className="font-bold text-gray-800">{member.name}</h4>
+                             <p className="text-xs text-gray-500 mb-2">{member.role}</p>
+                             <div className="flex gap-2 border-t border-gray-100 pt-3">
+                                <button onClick={() => { 
+                                  setNewTeamMember(member); 
+                                  setTeamDetailsStr(member.details.join('\n')); 
+                                  setTeamDetailsEnStr(member.detailsEn ? member.detailsEn.join('\n') : ''); 
+                                  setIsAddingTeam(true); 
+                                  window.scrollTo({top:0, behavior:'smooth'});
+                                }} className="flex-1 text-xs font-bold text-blue-600 bg-blue-50 py-2 rounded">Редагувати</button>
+                                <button onClick={() => deleteItem('team', member.id)} className="flex-1 text-xs font-bold text-red-600 bg-red-50 py-2 rounded">Видалити</button>
+                             </div>
+                          </div>
+                       </div>
+                     ))}
                  </div>
                </div>
              )}
@@ -1211,24 +1327,109 @@ export const AdminDashboard: React.FC = () => {
         {/* 6. PARTNERS MANAGER (UPDATED) */}
         {activeTab === 'partners' && (
           <div className="space-y-6">
-            
-            {/* ... */}
+            <div className="flex justify-between items-center bg-white p-4 rounded-xl border border-gray-200">
+               <div className="flex gap-4 items-center">
+                  {!showPartnerTypeManager && (
+                    <div className="relative">
+                       <select value={partnerFilterType} onChange={(e) => setPartnerFilterType(e.target.value)} className="appearance-none pl-4 pr-10 py-2 border rounded-lg font-bold text-sm text-gray-700 focus:outline-none focus:border-kmmr-blue cursor-pointer bg-white">
+                         {partnerTypes.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                       </select>
+                       <ChevronDown size={16} className="absolute right-3 top-3 text-gray-400 pointer-events-none" />
+                    </div>
+                  )}
+               </div>
+               <button onClick={() => setShowPartnerTypeManager(!showPartnerTypeManager)} className="text-sm font-bold text-kmmr-blue hover:underline flex items-center gap-2">
+                 {showPartnerTypeManager ? <><Handshake size={16}/> До списку партнерів</> : <><Settings size={16}/> Керувати категоріями</>}
+               </button>
+             </div>
 
             {/* PARTNER TYPES MANAGER */}
             {showPartnerTypeManager ? (
                <div className="space-y-6">
-                  {/* ... */}
-                  {/* Types List with DnD */}
+                  {isAddingPartnerType && (
+                     <form onSubmit={handleSavePartnerType} className="bg-white p-6 rounded-2xl border border-blue-100 animate-fade-in-up">
+                        <div className="flex justify-between items-start mb-4"><h3 className="font-bold text-lg">Категорія Партнерів</h3><button type="button" onClick={() => setIsAddingPartnerType(false)}><XCircle size={20}/></button></div>
+                        <div className="flex items-center gap-4 mb-4">
+                           <button type="button" onClick={() => setPartnerTypeLang('uk')} className={`px-2 py-1 rounded text-xs font-bold ${partnerTypeLang === 'uk' ? 'bg-blue-100 text-blue-700' : 'text-gray-500'}`}>UA</button>
+                           <button type="button" onClick={() => setPartnerTypeLang('en')} className={`px-2 py-1 rounded text-xs font-bold ${partnerTypeLang === 'en' ? 'bg-blue-100 text-blue-700' : 'text-gray-500'}`}>EN</button>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                           <div><label className="text-xs font-bold uppercase text-gray-500">Назва</label>
+                              {partnerTypeLang === 'uk' ? <input className="border p-2 rounded w-full" value={newPartnerType.name || ''} onChange={e => setNewPartnerType({...newPartnerType, name: e.target.value})}/> 
+                                                        : <input className="border p-2 rounded w-full" value={newPartnerType.nameEn || ''} onChange={e => setNewPartnerType({...newPartnerType, nameEn: e.target.value})}/>}
+                           </div>
+                           <div><label className="text-xs font-bold uppercase text-gray-500">Опис</label>
+                              {partnerTypeLang === 'uk' ? <input className="border p-2 rounded w-full" value={newPartnerType.description || ''} onChange={e => setNewPartnerType({...newPartnerType, description: e.target.value})}/> 
+                                                        : <input className="border p-2 rounded w-full" value={newPartnerType.descriptionEn || ''} onChange={e => setNewPartnerType({...newPartnerType, descriptionEn: e.target.value})}/>}
+                           </div>
+                           <div><label className="text-xs font-bold uppercase text-gray-500">Колір (Hex)</label><input className="border p-2 rounded w-full" value={newPartnerType.color || ''} onChange={e => setNewPartnerType({...newPartnerType, color: e.target.value})}/></div>
+                           <div><label className="text-xs font-bold uppercase text-gray-500">Іконка</label><input type="file" onChange={e => setFileToUpload(e.target.files ? e.target.files[0] : null)} className="w-full text-sm mt-1"/></div>
+                        </div>
+                        <button type="submit" disabled={loading} className="mt-4 bg-kmmr-green text-white px-6 py-2 rounded-lg font-bold">{loading ? <Loader2 className="animate-spin"/> : 'Зберегти'}</button>
+                     </form>
+                  )}
                   <div className="space-y-4">
-                     {/* ... */}
+                     <div onClick={() => setIsAddingPartnerType(true)} className="border-2 border-dashed border-gray-300 rounded-xl p-4 flex items-center justify-center cursor-pointer hover:bg-gray-50 text-gray-500 font-bold"><Plus size={20} className="mr-2"/> Додати Категорію</div>
+                     {partnerTypes.map((type, idx) => (
+                        <div key={type.id} draggable onDragStart={() => handleDragStartPartnerType(idx)} onDragOver={handleDragOver} onDrop={() => handleDropPartnerType(idx)} className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex items-center justify-between cursor-move">
+                           <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 rounded flex items-center justify-center text-white" style={{ backgroundColor: type.color }}>
+                                 {type.icon ? <img src={type.icon} className="w-6 h-6 invert brightness-0" alt=""/> : <Briefcase size={20}/>}
+                              </div>
+                              <div><h4 className="font-bold">{type.name}</h4><p className="text-xs text-gray-500">{type.description}</p></div>
+                           </div>
+                           <div className="flex gap-2">
+                             <button onClick={() => { setNewPartnerType(type); setIsAddingPartnerType(true); }} className="text-blue-500"><Edit2 size={16}/></button>
+                             <button onClick={() => deleteItem('partner_types', type.id)} className="text-red-500"><Trash2 size={16}/></button>
+                           </div>
+                        </div>
+                     ))}
                   </div>
                </div>
             ) : (
               /* PARTNER ITEMS MANAGER */
               <div className="space-y-6">
-                {/* ... */}
+                {isAddingPartner && (
+                   <form onSubmit={handleSavePartner} className="bg-white p-6 rounded-2xl border border-gray-200 animate-fade-in-up">
+                      <div className="flex justify-between items-start mb-6"><h3 className="font-bold text-xl">Партнер</h3><button type="button" onClick={() => setIsAddingPartner(false)}><XCircle size={24}/></button></div>
+                       <div className="flex items-center gap-4 border-b border-gray-100 pb-4 mb-4">
+                           <span className="text-sm font-bold text-gray-500">Мова:</span>
+                           <div className="flex bg-gray-100 p-1 rounded-lg">
+                              <button type="button" onClick={() => setPartnerLang('uk')} className={`px-3 py-1 rounded text-xs font-bold ${partnerLang === 'uk' ? 'bg-white shadow' : 'text-gray-500'}`}>UA</button>
+                              <button type="button" onClick={() => setPartnerLang('en')} className={`px-3 py-1 rounded text-xs font-bold ${partnerLang === 'en' ? 'bg-white shadow' : 'text-gray-500'}`}>EN</button>
+                           </div>
+                       </div>
+                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          <div><label className="text-xs font-bold uppercase text-gray-500">Назва</label>
+                              {partnerLang === 'uk' ? <input className="border p-2 rounded w-full" value={newPartner.name || ''} onChange={e => setNewPartner({...newPartner, name: e.target.value})} required/>
+                                                   : <input className="border p-2 rounded w-full" value={newPartner.nameEn || ''} onChange={e => setNewPartner({...newPartner, nameEn: e.target.value})}/>}
+                          </div>
+                          <div><label className="text-xs font-bold uppercase text-gray-500">Категорія</label>
+                             <select className="border p-2 rounded w-full" value={newPartner.type || ''} onChange={e => setNewPartner({...newPartner, type: e.target.value})} required>
+                                <option value="">Оберіть...</option>
+                                {partnerTypes.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                             </select>
+                          </div>
+                          <div><label className="text-xs font-bold uppercase text-gray-500">Колір фону (Hex)</label><input className="border p-2 rounded w-full" value={newPartner.bgColor || ''} onChange={e => setNewPartner({...newPartner, bgColor: e.target.value})}/></div>
+                          <div><label className="text-xs font-bold uppercase text-gray-500">Посилання</label><input className="border p-2 rounded w-full" value={newPartner.link || ''} onChange={e => setNewPartner({...newPartner, link: e.target.value})}/></div>
+                          <div className="md:col-span-2"><label className="text-xs font-bold uppercase text-gray-500">Логотип</label><input type="file" onChange={e => setFileToUpload(e.target.files ? e.target.files[0] : null)} className="w-full text-sm mt-1"/></div>
+                       </div>
+                       <button type="submit" disabled={loading} className="mt-6 bg-kmmr-green text-white px-8 py-3 rounded-xl font-bold">{loading ? <Loader2 className="animate-spin"/> : 'Зберегти'}</button>
+                   </form>
+                )}
+
                 <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                  {/* ... */}
+                  <div onClick={() => setIsAddingPartner(true)} className="aspect-square bg-gray-50 border-2 border-dashed border-gray-300 rounded-2xl flex flex-col items-center justify-center cursor-pointer hover:bg-gray-100"><Plus size={32} className="text-gray-400"/><span className="text-gray-500 font-bold mt-2 text-xs">Додати</span></div>
+                  {partners.filter(p => p.type === partnerFilterType).map((partner, idx) => (
+                     <div key={partner.id} draggable onDragStart={() => handleDragStartPartner(idx)} onDragOver={handleDragOver} onDrop={() => handleDropPartner(idx)} className="aspect-square bg-white rounded-2xl shadow-sm border border-gray-200 p-4 flex flex-col items-center justify-center relative group cursor-move hover:shadow-md transition-all">
+                        <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                           <button onClick={(e) => { e.stopPropagation(); setNewPartner(partner); setIsAddingPartner(true); window.scrollTo({top:0, behavior:'smooth'}); }} className="p-1 bg-blue-100 text-blue-600 rounded"><Edit2 size={12}/></button>
+                           <button onClick={(e) => { e.stopPropagation(); deleteItem('partners', partner.id); }} className="p-1 bg-red-100 text-red-600 rounded"><Trash2 size={12}/></button>
+                        </div>
+                        <img src={partner.image} alt={partner.name} className="w-full h-16 object-contain mb-2"/>
+                        <p className="text-xs font-bold text-center line-clamp-2">{partner.name}</p>
+                     </div>
+                  ))}
                 </div>
               </div>
             )}
