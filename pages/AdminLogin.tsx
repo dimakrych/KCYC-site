@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Lock, ArrowRight, Loader2 } from 'lucide-react';
+import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../firebaseConfig';
 
 export const AdminLogin: React.FC = () => {
@@ -16,7 +17,7 @@ export const AdminLogin: React.FC = () => {
     setError('');
 
     try {
-      await auth.signInWithEmailAndPassword(email, password);
+      await signInWithEmailAndPassword(auth, email, password);
       // We don't need to manually set localStorage for routing logic anymore 
       // as AuthContext handles it, but we can set it for redundancy or other checks
       localStorage.setItem('isAdmin', 'true'); 

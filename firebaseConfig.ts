@@ -1,7 +1,7 @@
-import firebase from "firebase/app";
-import "firebase/auth";
-import "firebase/firestore";
-import "firebase/storage";
+import { initializeApp } from "firebase/app";
+import { getAuth } from "firebase/auth";
+import { getFirestore } from "firebase/firestore";
+import { getStorage } from "firebase/storage";
 
 // Ваші реальні дані з консолі Firebase
 const firebaseConfig = {
@@ -14,13 +14,10 @@ const firebaseConfig = {
   measurementId: "G-0Q3R03CYK3"
 };
 
-if (!firebase.apps.length) {
-  firebase.initializeApp(firebaseConfig);
-}
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
 
-const app = firebase.app();
-
-// Експортуємо сервіси для використання в інших файлах
-export const auth = app.auth();
-export const db = app.firestore();
-export const storage = app.storage();
+// Initialize services
+export const auth = getAuth(app);
+export const db = getFirestore(app);
+export const storage = getStorage(app);
