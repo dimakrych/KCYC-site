@@ -12,7 +12,8 @@ export const translations = {
       titleEnd: 'Світ',
       subtitle: 'Ми — платформа для твого розвитку, реалізації ідей та впливу на життя столиці. Ставай частиною змін вже сьогодні.',
       btnJoin: 'Приєднатися',
-      btnProjects: 'Наші проєкти'
+      btnProjects: 'Наші проєкти',
+      btnSupport: 'Підтримка ініціатив'
     },
     mission: {
       title: 'Про нас',
@@ -70,6 +71,32 @@ export const translations = {
       consent: 'Натискаючи кнопку "Відправити", ви даєте згоду на обробку персональних даних.',
       loading: 'Відправка...',
       error: 'Виникла помилка при відправці. Спробуйте пізніше.'
+    },
+    support: {
+      title: 'Підтримка Громадських Ініціатив',
+      subtitle: 'Маєш крутий проєкт або ідею? КММР готова надати інформаційну, ресурсну або партнерську підтримку.',
+      labels: {
+        orgName: 'Назва організації / Ініціативи',
+        repName: "ПІБ Представника",
+        projectTitle: 'Назва проєкту',
+        supportType: 'Тип необхідної підтримки',
+        description: 'Опис проєкту та деталі запиту'
+      },
+      placeholders: {
+        orgName: 'ГО "Молодь Майбутнього"',
+        repName: 'Олена Петренко',
+        projectTitle: 'Еко-фестиваль 2024',
+        supportType: 'Оберіть тип підтримки...',
+        description: 'Опишіть мету вашого проєкту, цільову аудиторію та чим саме ми можемо бути корисні...'
+      },
+      types: {
+        info: 'Інформаційна підтримка (репости, анонси)',
+        resource: 'Ресурсна підтримка (приміщення, техніка)',
+        partner: 'Партнерство / Співорганізація',
+        volunteers: 'Залучення волонтерів',
+        expert: 'Експертна / Менторська допомога',
+        other: 'Інше'
+      }
     },
     footer: {
       subscribe: 'Підписатися',
@@ -192,7 +219,8 @@ export const translations = {
       titleEnd: 'World',
       subtitle: 'We are a platform for your development, realization of ideas, and impact on the capital\'s life. Be part of the change today.',
       btnJoin: 'Join Us',
-      btnProjects: 'Our Projects'
+      btnProjects: 'Our Projects',
+      btnSupport: 'Support Initiatives'
     },
     mission: {
       title: 'About Us',
@@ -250,6 +278,32 @@ export const translations = {
       consent: 'By clicking "Submit", you agree to the processing of personal data.',
       loading: 'Sending...',
       error: 'An error occurred. Please try again later.'
+    },
+    support: {
+      title: 'Support for Public Initiatives',
+      subtitle: 'Have a cool project or idea? KCYC is ready to provide informational, resource, or partnership support.',
+      labels: {
+        orgName: 'Organization / Initiative Name',
+        repName: "Representative Name",
+        projectTitle: 'Project Title',
+        supportType: 'Type of Support Needed',
+        description: 'Project description and request details'
+      },
+      placeholders: {
+        orgName: 'NGO "Future Youth"',
+        repName: 'Olena Petrenko',
+        projectTitle: 'Eco-Festival 2024',
+        supportType: 'Choose support type...',
+        description: 'Describe the goal of your project, target audience, and how exactly we can be useful...'
+      },
+      types: {
+        info: 'Informational Support (reposts, announcements)',
+        resource: 'Resource Support (premises, equipment)',
+        partner: 'Partnership / Co-organization',
+        volunteers: 'Volunteer Recruitment',
+        expert: 'Expert / Mentorship Help',
+        other: 'Other'
+      }
     },
     footer: {
       subscribe: 'Subscribe',
