@@ -130,20 +130,44 @@ export interface PartnerGroup {
   items: Partner[]; // Used only for static fallback
 }
 
-// New Types for Backend/Admin
-export interface ContactSubmission {
+// --- SUBMISSION TYPES ---
+
+export interface BaseSubmission {
   id: string;
+  status: 'new' | 'contacted' | 'approved' | 'rejected';
+  createdAt: any; // Firestore timestamp or string
+  formType?: 'general_contact' | 'initiative_support' | 'opportunity_application' | 'newsletter';
+}
+
+export interface ContactSubmission extends BaseSubmission {
   name: string;
   email: string;
   phone: string;
   department: string;
   motivation: string;
-  status: 'new' | 'contacted' | 'approved' | 'rejected';
-  createdAt: string;
 }
 
-export interface NewsletterSubscriber {
-  id: string;
+export interface SupportSubmission extends BaseSubmission {
+  orgName: string;
+  representativeName: string;
   email: string;
-  createdAt: any;
+  phone: string;
+  projectTitle: string;
+  supportType: string;
+  description: string;
 }
+
+export interface ApplicationSubmission extends BaseSubmission {
+  name: string;
+  email: string;
+  phone: string;
+  opportunityTitle: string;
+  type: string;
+  answers: Record<string, string>;
+}
+
+export interface NewsletterSubscriber extends BaseSubmission {
+  email: string;
+}
+
+export type Submission = ContactSubmission | SupportSubmission | ApplicationSubmission | NewsletterSubscriber;
