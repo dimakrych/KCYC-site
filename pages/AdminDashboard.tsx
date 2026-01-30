@@ -1,17 +1,18 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Users, FileText, Calendar, LogOut, Plus, Search, Trash2, Edit2, Download, Briefcase, CheckCircle, XCircle, Clock, Loader2, Save, GripVertical, List, Languages, Image as ImageIcon, Smile, Filter, ChevronDown, ChevronUp, Building2, Palette, Handshake, Link as LinkIcon, Settings, Mail, Instagram, Menu, X
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  collection, getDocs, doc, updateDoc, deleteDoc, addDoc, query, orderBy, onSnapshot, writeBatch 
-} from 'firebase/firestore';
+import * as firestore from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '../firebaseConfig';
 import { useAuth } from '../context/AuthContext';
 import { ContactSubmission, DocumentItem, Project, Opportunity, FormQuestion, TeamMember, Department, PartnerItem, PartnerType } from '../types';
 // @ts-ignore - using importmap for xlsx
 import { utils, writeFile } from 'xlsx';
+
+const { collection, getDocs, doc, updateDoc, deleteDoc, addDoc, query, orderBy, onSnapshot, writeBatch } = firestore;
 
 export const AdminDashboard: React.FC = () => {
   const navigate = useNavigate();
@@ -39,7 +40,7 @@ export const AdminDashboard: React.FC = () => {
   const [draggedMemberIndex, setDraggedMemberIndex] = useState<number | null>(null);
 
   // Submission Filters
-  const [submissionFilter, setSubmissionFilter] = useState<'all' | 'contact' | 'application' | 'newsletter'>('all');
+  const [submissionFilter, setSubmissionFilter] = useState<'all' | 'contact' | 'application' | 'newsletter' | 'support'>('all');
   const [selectedEventFilter, setSelectedEventFilter] = useState<string>('all');
 
   // Team Filters & State
@@ -457,8 +458,13 @@ export const AdminDashboard: React.FC = () => {
          return type === 'newsletter';
       }
 
-      // If we are looking for other tabs, EXCLUDE newsletter items
-      if (type === 'newsletter') return false;
+      // If we are looking for Support Requests
+      if (submissionFilter === 'support') {
+         return type === 'initiative_support';
+      }
+
+      // If we are looking for other tabs, EXCLUDE special items
+      if (type === 'newsletter' || type === 'initiative_support') return false;
 
       const isApp = type === 'opportunity_application';
       
@@ -506,6 +512,7 @@ export const AdminDashboard: React.FC = () => {
 
     const formattedData = dataToExport.map(sub => {
       const isApp = (sub as any).formType === 'opportunity_application';
+      const isSupport = (sub as any).formType === 'initiative_support';
       const date = sub.createdAt && typeof sub.createdAt === 'object' 
         ? new Date((sub.createdAt as any).seconds * 1000).toLocaleString('uk-UA') 
         : sub.createdAt;
@@ -514,12 +521,14 @@ export const AdminDashboard: React.FC = () => {
         "ID": sub.id,
         "Дата": date,
         "Статус": sub.status,
-        "Тип": isApp ? 'Реєстрація' : 'Контакт',
-        "Ім'я": sub.name,
+        "Тип": isSupport ? 'Підтримка ініціативи' : isApp ? 'Реєстрація' : 'Контакт',
+        "Ім'я / Організація": isSupport ? (sub as any).orgName : sub.name,
+        "Представник": (sub as any).repName || '-',
         "Телефон": sub.phone,
         "Email": sub.email,
-        "Подія/Департамент": (sub as any).opportunityTitle || sub.department || '-',
-        "Мотивація": sub.motivation || '',
+        "Подія/Проєкт": (sub as any).opportunityTitle || (sub as any).projectTitle || sub.department || '-',
+        "Опис/Мотивація": (sub as any).description || sub.motivation || '',
+        "Необхідна підтримка": (sub as any).supportType || '-'
       };
       if ((sub as any).answers) {
          Object.entries((sub as any).answers).forEach(([key, val]) => {
@@ -533,14 +542,15 @@ export const AdminDashboard: React.FC = () => {
     const workbook = utils.book_new();
     utils.book_append_sheet(workbook, worksheet, "Заявки");
     const max_width = formattedData.reduce((w, r) => Math.max(w, Object.keys(r).length), 10);
-    worksheet["!cols"] = [ { wch: 20 }, { wch: 20 }, { wch: 10 }, { wch: 10 }, { wch: 25 }, { wch: 15 }, { wch: 25 }, { wch: 30 } ];
+    worksheet["!cols"] = [ { wch: 20 }, { wch: 20 }, { wch: 10 }, { wch: 15 }, { wch: 25 }, { wch: 20 }, { wch: 15 }, { wch: 25 }, { wch: 30 }, { wch: 30 } ];
     const fileName = selectedEventFilter !== 'all' 
       ? `Export_${selectedEventFilter.substring(0, 20)}_${new Date().toISOString().split('T')[0]}.xlsx`
       : `Export_All_${new Date().toISOString().split('T')[0]}.xlsx`;
     writeFile(workbook, fileName);
   };
 
-  // --- PARTNER TYPE LOGIC ---
+  // ... (Keep existing update functions for partners, etc)
+
   const handleSavePartnerType = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newPartnerType.name) return;
@@ -1007,6 +1017,12 @@ export const AdminDashboard: React.FC = () => {
                     Реєстрації
                   </button>
                   <button 
+                    onClick={() => setSubmissionFilter('support')}
+                    className={`px-3 py-2 rounded-md text-xs sm:text-sm font-bold transition-all ${submissionFilter === 'support' ? 'bg-white shadow text-kmmr-blue' : 'text-gray-500 hover:text-gray-700'}`}
+                  >
+                    Підтримка
+                  </button>
+                  <button 
                     onClick={() => setSubmissionFilter('newsletter')}
                     className={`px-3 py-2 rounded-md text-xs sm:text-sm font-bold transition-all ${submissionFilter === 'newsletter' ? 'bg-white shadow text-kmmr-blue' : 'text-gray-500 hover:text-gray-700'}`}
                   >
@@ -1015,7 +1031,7 @@ export const AdminDashboard: React.FC = () => {
                 </div>
                 
                 {/* Event Dropdown Filter */}
-                {submissionFilter !== 'contact' && submissionFilter !== 'newsletter' && uniqueEvents.length > 0 && (
+                {submissionFilter !== 'contact' && submissionFilter !== 'newsletter' && submissionFilter !== 'support' && uniqueEvents.length > 0 && (
                    <div className="relative w-full sm:w-auto">
                       <select 
                         value={selectedEventFilter}
@@ -1055,12 +1071,13 @@ export const AdminDashboard: React.FC = () => {
                                   : sub.createdAt;
                   
                   const isApp = (sub as any).formType === 'opportunity_application';
+                  const isSupport = (sub as any).formType === 'initiative_support';
 
                   return (
                     <div key={sub.id} className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex flex-col gap-3">
                        <div className="flex justify-between items-start">
                           <div>
-                             <h4 className="font-bold text-gray-900 text-lg">{sub.name || sub.email}</h4>
+                             <h4 className="font-bold text-gray-900 text-lg">{isSupport ? (sub as any).orgName : (sub.name || sub.email)}</h4>
                              <div className="text-xs text-gray-500 flex items-center gap-1 mt-1"><Clock size={12}/> {date}</div>
                           </div>
                           <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase ${getStatusColor(sub.status)}`}>{sub.status}</span>
@@ -1071,6 +1088,11 @@ export const AdminDashboard: React.FC = () => {
                               <div className="text-sm">
                                 <span className="text-xs font-bold text-kmmr-purple bg-purple-50 px-2 py-0.5 rounded mr-2">Реєстрація</span>
                                 <span className="font-semibold text-gray-800">{(sub as any).opportunityTitle}</span>
+                              </div>
+                          ) : isSupport ? (
+                               <div className="text-sm">
+                                <span className="text-xs font-bold text-kmmr-green bg-green-50 px-2 py-0.5 rounded mr-2">Підтримка</span>
+                                <span className="font-semibold text-gray-800">{(sub as any).projectTitle}</span>
                               </div>
                           ) : submissionFilter === 'newsletter' ? (
                               <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded">Підписка на новини</span>
@@ -1092,7 +1114,12 @@ export const AdminDashboard: React.FC = () => {
                        {/* Details Area */}
                        {submissionFilter !== 'newsletter' && (
                          <div className="bg-gray-50 p-3 rounded-lg text-xs text-gray-700 mt-1">
-                            {(sub as any).answers ? (
+                            {isSupport ? (
+                               <div className="space-y-1">
+                                  <div><span className="font-bold">Представник:</span> {(sub as any).repName}</div>
+                                  <div className="italic line-clamp-3">"{(sub as any).description}"</div>
+                               </div>
+                            ) : (sub as any).answers ? (
                                 <div className="space-y-1">
                                     {Object.entries((sub as any).answers).slice(0, 3).map(([key, val]) => (
                                         <div key={key} className="truncate">
@@ -1169,7 +1196,7 @@ export const AdminDashboard: React.FC = () => {
                   <table className="w-full text-left min-w-[900px]">
                     <thead className="bg-gray-50 border-b border-gray-100">
                       <tr>
-                        <th className="p-4 text-sm font-bold text-gray-500 uppercase">Ім'я / Дата</th>
+                        <th className="p-4 text-sm font-bold text-gray-500 uppercase">Ім'я / Організація / Дата</th>
                         <th className="p-4 text-sm font-bold text-gray-500 uppercase">Тип заявки</th>
                         <th className="p-4 text-sm font-bold text-gray-500 uppercase">Контакти</th>
                         <th className="p-4 text-sm font-bold text-gray-500 uppercase">Деталі</th>
@@ -1178,10 +1205,12 @@ export const AdminDashboard: React.FC = () => {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
-                      {filteredSubmissions.map(sub => (
+                      {filteredSubmissions.map(sub => {
+                        const isSupport = (sub as any).formType === 'initiative_support';
+                        return (
                         <tr key={sub.id} className="hover:bg-gray-50 transition-colors">
                           <td className="p-4">
-                            <div className="font-bold text-gray-800">{sub.name}</div>
+                            <div className="font-bold text-gray-800">{isSupport ? (sub as any).orgName : sub.name}</div>
                             <div className="text-xs text-gray-500">
                               {sub.createdAt && typeof sub.createdAt === 'object' 
                                 ? new Date((sub.createdAt as any).seconds * 1000).toLocaleDateString() 
@@ -1195,6 +1224,11 @@ export const AdminDashboard: React.FC = () => {
                                       <span className="text-sm font-bold text-gray-800 leading-tight">{(sub as any).opportunityTitle}</span>
                                       <span className="text-xs text-gray-500">{(sub as any).type}</span>
                                   </div>
+                              ) : isSupport ? (
+                                  <div className="flex flex-col">
+                                      <span className="text-[10px] font-black uppercase tracking-wider text-green-600 bg-green-50 px-2 py-0.5 rounded w-fit mb-1">Підтримка</span>
+                                      <span className="text-sm font-bold text-gray-800 leading-tight">{(sub as any).projectTitle}</span>
+                                  </div>
                               ) : (
                                   <div className="flex flex-col">
                                       <span className="text-[10px] font-black uppercase tracking-wider text-blue-600 bg-blue-50 px-2 py-0.5 rounded w-fit mb-1">Контакт</span>
@@ -1204,7 +1238,13 @@ export const AdminDashboard: React.FC = () => {
                           </td>
                           <td className="p-4"><div className="text-sm font-medium">{sub.email}</div><div className="text-sm text-gray-500">{sub.phone}</div></td>
                           <td className="p-4">
-                              {(sub as any).answers ? (
+                              {isSupport ? (
+                                 <div className="text-xs text-gray-600 max-w-xs space-y-1">
+                                    <div><span className="font-bold">Представник:</span> {(sub as any).repName}</div>
+                                    <div className="truncate" title={(sub as any).description}><span className="font-bold">Опис:</span> {(sub as any).description}</div>
+                                    <div className="truncate" title={(sub as any).supportType}><span className="font-bold">Потреба:</span> {(sub as any).supportType}</div>
+                                 </div>
+                              ) : (sub as any).answers ? (
                                   <div className="space-y-1 text-xs text-gray-600 max-w-xs">
                                       {Object.entries((sub as any).answers).map(([key, val]) => (
                                           <div key={key} className="truncate group relative cursor-help">
@@ -1229,7 +1269,7 @@ export const AdminDashboard: React.FC = () => {
                             </div>
                           </td>
                         </tr>
-                      ))}
+                      )})}
                     </tbody>
                   </table>
                  )

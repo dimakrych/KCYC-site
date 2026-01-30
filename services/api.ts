@@ -1,5 +1,8 @@
-import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+
+import * as firestore from "firebase/firestore";
 import { db } from "../firebaseConfig";
+
+const { collection, addDoc, serverTimestamp } = firestore;
 
 export interface ContactFormData {
   name: string;
@@ -7,6 +10,16 @@ export interface ContactFormData {
   email: string;
   department: string;
   motivation: string;
+}
+
+export interface SupportFormData {
+  orgName: string;
+  repName: string;
+  phone: string;
+  email: string;
+  projectTitle: string;
+  description: string;
+  supportType: string;
 }
 
 export interface ApplicationFormData {
@@ -57,6 +70,27 @@ export const submitContactForm = async (data: ContactFormData): Promise<{ succes
     };
   } catch (error) {
     console.error("Error adding document: ", error);
+    throw error;
+  }
+};
+
+// Функція відправки форми підтримки ініціатив
+export const submitSupportForm = async (data: SupportFormData): Promise<{ success: boolean; message: string }> => {
+  try {
+    const cleanedPayload = deepClean(data);
+    await addDoc(collection(db, "submissions"), {
+      ...cleanedPayload,
+      formType: 'initiative_support', // Спеціальний маркер для підтримки
+      status: 'new',
+      createdAt: serverTimestamp()
+    });
+
+    return { 
+      success: true, 
+      message: 'Дякуємо! Ваша ініціатива успішно надіслана.' 
+    };
+  } catch (error) {
+    console.error("Error adding support request: ", error);
     throw error;
   }
 };

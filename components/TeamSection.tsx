@@ -3,9 +3,11 @@ import { DEPARTMENTS_UK, DEPARTMENTS_EN, TEAM_MEMBERS_UK, TEAM_MEMBERS_EN } from
 import { Modal } from './ui/Modal';
 import { TeamMember, Department } from '../types';
 import { useLanguage } from '../context/LanguageContext';
-import { collection, query, onSnapshot } from 'firebase/firestore';
+import * as firestore from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 import { Loader2, Instagram } from 'lucide-react';
+
+const { collection, query, onSnapshot } = firestore;
 
 export const TeamSection: React.FC = () => {
   const [selectedMember, setSelectedMember] = useState<TeamMember | null>(null);

@@ -2,11 +2,13 @@ import React, { useEffect, useState } from 'react';
 import { PROJECTS_UK, PROJECTS_EN } from '../constants';
 import { ExternalLink, Calendar, Loader2, X, ArrowRight, Clock } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
-import { collection, query, onSnapshot } from 'firebase/firestore';
+import * as firestore from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 import { Project, Opportunity } from '../types';
 import { Modal } from './ui/Modal';
 import { ApplicationModal } from './ApplicationModal';
+
+const { collection, query, onSnapshot } = firestore;
 
 export const ProjectsSection: React.FC = () => {
   const { language, t } = useLanguage();

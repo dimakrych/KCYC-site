@@ -12,7 +12,8 @@ export const translations = {
       titleEnd: 'Світ',
       subtitle: 'Ми — платформа для твого розвитку, реалізації ідей та впливу на життя столиці. Ставай частиною змін вже сьогодні.',
       btnJoin: 'Приєднатися',
-      btnProjects: 'Наші проєкти'
+      btnProjects: 'Наші проєкти',
+      btnSupport: 'Підтримка ініціатив'
     },
     mission: {
       title: 'Про нас',
@@ -70,6 +71,26 @@ export const translations = {
       consent: 'Натискаючи кнопку "Відправити", ви даєте згоду на обробку персональних даних.',
       loading: 'Відправка...',
       error: 'Виникла помилка при відправці. Спробуйте пізніше.'
+    },
+    support: {
+      title: 'Підтримка Громадських Ініціатив',
+      subtitle: 'Маєте круту ідею або проєкт? Заповніть форму, і КММР допоможе з реалізацією, ресурсами або інформаційною підтримкою.',
+      labels: {
+        orgName: 'Назва організації / Ініціативної групи',
+        repName: 'ПІБ Представника',
+        projectTitle: 'Назва проєкту',
+        description: 'Опис ініціативи',
+        supportType: 'Яка підтримка потрібна?'
+      },
+      placeholders: {
+        orgName: 'ГО "Молодь Майбутнього"',
+        repName: 'Олена Петренко',
+        projectTitle: 'Освітній фестиваль...',
+        description: 'Мета проєкту, цільова аудиторія, очікувані результати...',
+        supportType: 'Інформаційна, пошук волонтерів, приміщення, партнерство...'
+      },
+      successTitle: 'Запит отримано!',
+      successDesc: 'Ми розглянемо вашу ініціативу та зв\'яжемося для обговорення деталей співпраці.'
     },
     footer: {
       subscribe: 'Підписатися',
@@ -192,7 +213,8 @@ export const translations = {
       titleEnd: 'World',
       subtitle: 'We are a platform for your development, realization of ideas, and impact on the capital\'s life. Be part of the change today.',
       btnJoin: 'Join Us',
-      btnProjects: 'Our Projects'
+      btnProjects: 'Our Projects',
+      btnSupport: 'Support Initiatives'
     },
     mission: {
       title: 'About Us',
@@ -250,6 +272,26 @@ export const translations = {
       consent: 'By clicking "Submit", you agree to the processing of personal data.',
       loading: 'Sending...',
       error: 'An error occurred. Please try again later.'
+    },
+    support: {
+      title: 'Support for Public Initiatives',
+      subtitle: 'Have a great idea or project? Fill out the form, and KCYC will help with implementation, resources, or informational support.',
+      labels: {
+        orgName: 'Organization Name / Initiative Group',
+        repName: 'Representative Name',
+        projectTitle: 'Project Title',
+        description: 'Initiative Description',
+        supportType: 'What support is needed?'
+      },
+      placeholders: {
+        orgName: 'NGO "Future Youth"',
+        repName: 'Olena Petrenko',
+        projectTitle: 'Educational Festival...',
+        description: 'Project goal, target audience, expected results...',
+        supportType: 'Informational, volunteers search, venue, partnership...'
+      },
+      successTitle: 'Request Received!',
+      successDesc: 'We will review your initiative and contact you to discuss cooperation details.'
     },
     footer: {
       subscribe: 'Subscribe',
