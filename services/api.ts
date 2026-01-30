@@ -1,4 +1,4 @@
-import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import * as firestore from "firebase/firestore";
 import { db } from "../firebaseConfig";
 
 export interface ContactFormData {
@@ -54,11 +54,11 @@ const deepClean = (obj: any): any => {
 export const submitContactForm = async (data: ContactFormData): Promise<{ success: boolean; message: string }> => {
   try {
     const cleanedPayload = deepClean(data);
-    await addDoc(collection(db, "submissions"), {
+    await firestore.addDoc(firestore.collection(db, "submissions"), {
       ...cleanedPayload,
       formType: 'general_contact', // Маркер типу
       status: 'new',
-      createdAt: serverTimestamp()
+      createdAt: firestore.serverTimestamp()
     });
 
     return { 
@@ -75,11 +75,11 @@ export const submitContactForm = async (data: ContactFormData): Promise<{ succes
 export const submitSupportForm = async (data: SupportFormData): Promise<{ success: boolean; message: string }> => {
   try {
     const cleanedPayload = deepClean(data);
-    await addDoc(collection(db, "submissions"), {
+    await firestore.addDoc(firestore.collection(db, "submissions"), {
       ...cleanedPayload,
       formType: 'initiative_support', // Спеціальний маркер для підтримки
       status: 'new',
-      createdAt: serverTimestamp()
+      createdAt: firestore.serverTimestamp()
     });
 
     return { 
@@ -99,11 +99,11 @@ export const submitApplicationForm = async (data: ApplicationFormData): Promise<
     
     // Змінено: пишемо в 'submissions' замість 'applications', щоб використовувати існуючі правила безпеки
     // та бачити всі заявки в одній таблиці в адмінці.
-    await addDoc(collection(db, "submissions"), {
+    await firestore.addDoc(firestore.collection(db, "submissions"), {
       ...cleanedPayload,
       formType: 'opportunity_application', // Маркер типу
       status: 'new',
-      createdAt: serverTimestamp()
+      createdAt: firestore.serverTimestamp()
     });
 
     return { 
@@ -120,10 +120,10 @@ export const submitApplicationForm = async (data: ApplicationFormData): Promise<
 export const subscribeToNewsletter = async (email: string): Promise<{ success: boolean; message: string }> => {
   try {
     // FIX: Використовуємо колекцію 'submissions', до якої вже є доступ
-    await addDoc(collection(db, "submissions"), {
+    await firestore.addDoc(firestore.collection(db, "submissions"), {
       email,
       formType: 'newsletter', // Спеціальний тип для фільтрації
-      createdAt: serverTimestamp()
+      createdAt: firestore.serverTimestamp()
     });
     return { success: true, message: 'Ви успішно підписалися!' };
   } catch (error) {

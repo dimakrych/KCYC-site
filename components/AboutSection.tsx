@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { SDGS_UK, SDGS_EN, PARTNER_GROUPS_UK, PARTNER_GROUPS_EN, TIMELINE_EVENTS_UK, TIMELINE_EVENTS_EN } from '../constants';
 import { Target, Flag, Users, HeartHandshake } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
-import { collection, onSnapshot } from 'firebase/firestore';
+import * as firestore from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 import { PartnerItem, PartnerType } from '../types';
 
@@ -17,7 +17,7 @@ export const AboutSection: React.FC = () => {
 
   useEffect(() => {
     // Realtime listener for Partners
-    const unsubPartners = onSnapshot(collection(db, "partners"), (snapshot) => {
+    const unsubPartners = firestore.onSnapshot(firestore.collection(db, "partners"), (snapshot) => {
       const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as PartnerItem));
       // Sort by order
       data.sort((a,b) => {
@@ -31,7 +31,7 @@ export const AboutSection: React.FC = () => {
     });
 
     // Realtime listener for Partner Types
-    const unsubTypes = onSnapshot(collection(db, "partner_types"), (snapshot) => {
+    const unsubTypes = firestore.onSnapshot(firestore.collection(db, "partner_types"), (snapshot) => {
       const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as PartnerType));
       data.sort((a,b) => {
          const orderA = a.order !== undefined ? a.order : 999;

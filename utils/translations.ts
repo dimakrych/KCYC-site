@@ -76,18 +76,26 @@ export const translations = {
       title: 'Підтримка Громадських Ініціатив',
       subtitle: 'Маєте круту ідею або проєкт? Заповніть форму, і КММР допоможе з реалізацією, ресурсами або інформаційною підтримкою.',
       labels: {
-        orgName: 'Назва організації / Ініціативної групи',
+        orgName: 'Назва організації / Ініціативи',
         repName: 'ПІБ Представника',
         projectTitle: 'Назва проєкту',
-        description: 'Опис ініціативи',
-        supportType: 'Яка підтримка потрібна?'
+        description: 'Опис проєкту та деталі запиту',
+        supportType: 'Тип необхідної підтримки'
       },
       placeholders: {
         orgName: 'ГО "Молодь Майбутнього"',
         repName: 'Олена Петренко',
-        projectTitle: 'Освітній фестиваль...',
-        description: 'Мета проєкту, цільова аудиторія, очікувані результати...',
-        supportType: 'Інформаційна, пошук волонтерів, приміщення, партнерство...'
+        projectTitle: 'Еко-фестиваль 2024',
+        description: 'Опишіть мету вашого проєкту, цільову аудиторію та чим саме ми можемо бути корисні...',
+        supportType: 'Оберіть тип підтримки...'
+      },
+      options: {
+        info: 'Інформаційна підтримка (репости, анонси)',
+        resource: 'Ресурсна підтримка (приміщення, техніка)',
+        partnership: 'Партнерство / Співорганізація',
+        volunteers: 'Залучення волонтерів',
+        mentor: 'Експертна / Менторська допомога',
+        other: 'Інше'
       },
       successTitle: 'Запит отримано!',
       successDesc: 'Ми розглянемо вашу ініціативу та зв\'яжемося для обговорення деталей співпраці.'
@@ -281,15 +289,23 @@ export const translations = {
         orgName: 'Organization Name / Initiative Group',
         repName: 'Representative Name',
         projectTitle: 'Project Title',
-        description: 'Initiative Description',
-        supportType: 'What support is needed?'
+        description: 'Project Description & Request Details',
+        supportType: 'Type of Support Needed'
       },
       placeholders: {
         orgName: 'NGO "Future Youth"',
         repName: 'Olena Petrenko',
         projectTitle: 'Educational Festival...',
         description: 'Project goal, target audience, expected results...',
-        supportType: 'Informational, volunteers search, venue, partnership...'
+        supportType: 'Choose support type...'
+      },
+      options: {
+        info: 'Informational support (reposts, announcements)',
+        resource: 'Resource support (premises, equipment)',
+        partnership: 'Partnership / Co-organization',
+        volunteers: 'Volunteers attraction',
+        mentor: 'Expert / Mentor assistance',
+        other: 'Other'
       },
       successTitle: 'Request Received!',
       successDesc: 'We will review your initiative and contact you to discuss cooperation details.'

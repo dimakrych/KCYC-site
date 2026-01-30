@@ -3,7 +3,7 @@ import { DEPARTMENTS_UK, DEPARTMENTS_EN, TEAM_MEMBERS_UK, TEAM_MEMBERS_EN } from
 import { Modal } from './ui/Modal';
 import { TeamMember, Department } from '../types';
 import { useLanguage } from '../context/LanguageContext';
-import { collection, query, onSnapshot } from 'firebase/firestore';
+import * as firestore from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 import { Loader2, Instagram } from 'lucide-react';
 
@@ -18,7 +18,7 @@ export const TeamSection: React.FC = () => {
     setLoading(true);
 
     // Fetch Departments (Realtime)
-    const unsubDepts = onSnapshot(query(collection(db, "departments")), (snapshot) => {
+    const unsubDepts = firestore.onSnapshot(firestore.query(firestore.collection(db, "departments")), (snapshot) => {
         const fetchedDepts: Department[] = snapshot.docs.map(doc => ({
           id: doc.id,
           ...doc.data()
@@ -44,7 +44,7 @@ export const TeamSection: React.FC = () => {
     });
 
     // Fetch Team (Realtime)
-    const unsubTeam = onSnapshot(query(collection(db, "team")), (snapshot) => {
+    const unsubTeam = firestore.onSnapshot(firestore.query(firestore.collection(db, "team")), (snapshot) => {
         const fetchedTeam: TeamMember[] = snapshot.docs.map(doc => ({
           id: doc.id,
           ...doc.data()
