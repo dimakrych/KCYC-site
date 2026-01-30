@@ -7,7 +7,6 @@ import { TeamSection } from './components/TeamSection';
 import { ProjectsSection } from './components/ProjectsSection';
 import { OpportunitiesSection } from './components/OpportunitiesSection';
 import { ContactsSection } from './components/ContactsSection';
-import { SupportSection } from './components/SupportSection';
 import { AboutSection } from './components/AboutSection';
 import { DocumentsSection } from './components/DocumentsSection';
 import { AdminLogin } from './pages/AdminLogin';
@@ -78,7 +77,6 @@ const App = () => {
               <Route path="/opportunities" element={<PublicLayout><OpportunitiesSection /></PublicLayout>} />
               <Route path="/documents" element={<PublicLayout><DocumentsSection /></PublicLayout>} />
               <Route path="/contacts" element={<PublicLayout><ContactsSection /></PublicLayout>} />
-              <Route path="/support" element={<PublicLayout><SupportSection /></PublicLayout>} />
             </Routes>
           </Router>
         </AuthProvider>

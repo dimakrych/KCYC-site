@@ -9,16 +9,6 @@ export interface ContactFormData {
   motivation: string;
 }
 
-export interface SupportFormData {
-  orgName: string;
-  representativeName: string;
-  phone: string;
-  email: string;
-  projectTitle: string;
-  supportType: string;
-  description: string;
-}
-
 export interface ApplicationFormData {
   name: string;
   phone: string;
@@ -67,27 +57,6 @@ export const submitContactForm = async (data: ContactFormData): Promise<{ succes
     };
   } catch (error) {
     console.error("Error adding document: ", error);
-    throw error;
-  }
-};
-
-// Функція відправки форми підтримки ініціатив
-export const submitSupportForm = async (data: SupportFormData): Promise<{ success: boolean; message: string }> => {
-  try {
-    const cleanedPayload = deepClean(data);
-    await addDoc(collection(db, "submissions"), {
-      ...cleanedPayload,
-      formType: 'initiative_support', // Маркер типу
-      status: 'new',
-      createdAt: serverTimestamp()
-    });
-
-    return { 
-      success: true, 
-      message: 'Дякуємо! Ваш запит на підтримку успішно надіслано.' 
-    };
-  } catch (error) {
-    console.error("Error adding support request: ", error);
     throw error;
   }
 };
