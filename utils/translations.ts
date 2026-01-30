@@ -161,7 +161,8 @@ export const translations = {
       title: 'Наші Проєкти',
       desc: 'Ініціативи, які вже змінюють Київ.',
       details: 'Деталі',
-      insta: 'Дивитись в Instagram'
+      insta: 'Дивитись в Instagram',
+      viewAll: 'Всі проєкти'
     },
     opportunities: {
       tag: 'Розвиток',
@@ -362,7 +363,8 @@ export const translations = {
       title: 'Our Projects',
       desc: 'Initiatives that are already changing Kyiv.',
       details: 'Details',
-      insta: 'View on Instagram'
+      insta: 'View on Instagram',
+      viewAll: 'All Projects'
     },
     opportunities: {
       tag: 'Development',

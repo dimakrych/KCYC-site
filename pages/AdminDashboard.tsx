@@ -1,18 +1,15 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Users, FileText, Calendar, LogOut, Plus, Search, Trash2, Edit2, Download, Briefcase, CheckCircle, XCircle, Clock, Loader2, Save, GripVertical, List, Languages, Image as ImageIcon, Smile, Filter, ChevronDown, ChevronUp, Building2, Palette, Handshake, Link as LinkIcon, Settings, Mail, Instagram, Menu, X
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import * as firestore from 'firebase/firestore';
+import { collection, getDocs, doc, updateDoc, deleteDoc, addDoc, query, orderBy, onSnapshot, writeBatch } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '../firebaseConfig';
 import { useAuth } from '../context/AuthContext';
 import { ContactSubmission, DocumentItem, Project, Opportunity, FormQuestion, TeamMember, Department, PartnerItem, PartnerType } from '../types';
 // @ts-ignore - using importmap for xlsx
-import { utils, writeFile } from 'xlsx';
-
-const { collection, getDocs, doc, updateDoc, deleteDoc, addDoc, query, orderBy, onSnapshot, writeBatch } = firestore;
+import * as XLSX from 'xlsx';
 
 export const AdminDashboard: React.FC = () => {
   const navigate = useNavigate();
@@ -502,11 +499,11 @@ export const AdminDashboard: React.FC = () => {
           : sub.createdAt || '-'
       }));
       
-      const worksheet = utils.json_to_sheet(formattedData);
-      const workbook = utils.book_new();
-      utils.book_append_sheet(workbook, worksheet, "Підписники");
+      const worksheet = XLSX.utils.json_to_sheet(formattedData);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Підписники");
       worksheet["!cols"] = [{ wch: 10 }, { wch: 30 }, { wch: 25 }];
-      writeFile(workbook, `Newsletter_Export_${new Date().toISOString().split('T')[0]}.xlsx`);
+      XLSX.writeFile(workbook, `Newsletter_Export_${new Date().toISOString().split('T')[0]}.xlsx`);
       return;
     }
 
@@ -538,15 +535,15 @@ export const AdminDashboard: React.FC = () => {
       }
       return baseObj;
     });
-    const worksheet = utils.json_to_sheet(formattedData);
-    const workbook = utils.book_new();
-    utils.book_append_sheet(workbook, worksheet, "Заявки");
+    const worksheet = XLSX.utils.json_to_sheet(formattedData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Заявки");
     const max_width = formattedData.reduce((w, r) => Math.max(w, Object.keys(r).length), 10);
     worksheet["!cols"] = [ { wch: 20 }, { wch: 20 }, { wch: 10 }, { wch: 15 }, { wch: 25 }, { wch: 20 }, { wch: 15 }, { wch: 25 }, { wch: 30 }, { wch: 30 } ];
     const fileName = selectedEventFilter !== 'all' 
       ? `Export_${selectedEventFilter.substring(0, 20)}_${new Date().toISOString().split('T')[0]}.xlsx`
       : `Export_All_${new Date().toISOString().split('T')[0]}.xlsx`;
-    writeFile(workbook, fileName);
+    XLSX.writeFile(workbook, fileName);
   };
 
   // ... (Keep existing update functions for partners, etc)

@@ -2,11 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { DOCUMENTS_LIST_UK, DOCUMENTS_LIST_EN } from '../constants';
 import { FileText, Download, ShieldCheck, ChevronRight, Loader2 } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
-import * as firestore from 'firebase/firestore';
+import { collection, query, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 import { DocumentItem } from '../types';
-
-const { collection, query, onSnapshot } = firestore;
 
 export const DocumentsSection: React.FC = () => {
   const { language, t } = useLanguage();

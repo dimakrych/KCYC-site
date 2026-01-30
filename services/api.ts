@@ -1,8 +1,5 @@
-
-import * as firestore from "firebase/firestore";
+import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "../firebaseConfig";
-
-const { collection, addDoc, serverTimestamp } = firestore;
 
 export interface ContactFormData {
   name: string;

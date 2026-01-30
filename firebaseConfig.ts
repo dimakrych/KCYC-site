@@ -1,6 +1,6 @@
 import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
-import * as firestore from "firebase/firestore";
+import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 
 // Ваші реальні дані з консолі Firebase
@@ -19,5 +19,5 @@ const app = initializeApp(firebaseConfig);
 
 // Initialize services
 export const auth = getAuth(app);
-export const db = firestore.getFirestore(app);
+export const db = getFirestore(app);
 export const storage = getStorage(app);

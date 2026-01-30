@@ -5,6 +5,7 @@ import { ContactsSection } from '../components/ContactsSection';
 import { HomeValues } from '../components/HomeValues';
 import { StatsBanner } from '../components/StatsBanner';
 import { MissionSection } from '../components/MissionSection';
+import { ProjectsSection } from '../components/ProjectsSection';
 
 export const Home: React.FC = () => {
   return (
@@ -14,6 +15,7 @@ export const Home: React.FC = () => {
       <MissionSection />
       <HomeValues />
       <FocusAreasSection />
+      <ProjectsSection limit={3} isHome />
       <ContactsSection />
     </>
   );

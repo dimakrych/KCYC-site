@@ -1,17 +1,22 @@
 import React, { useEffect, useState } from 'react';
 import { PROJECTS_UK, PROJECTS_EN } from '../constants';
-import { ExternalLink, Calendar, Loader2, X, ArrowRight, Clock } from 'lucide-react';
+import { ExternalLink, Calendar, Loader2, ArrowRight, Clock } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
-import * as firestore from 'firebase/firestore';
+import { collection, query, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 import { Project, Opportunity } from '../types';
 import { Modal } from './ui/Modal';
 import { ApplicationModal } from './ApplicationModal';
+import { useNavigate } from 'react-router-dom';
 
-const { collection, query, onSnapshot } = firestore;
+interface ProjectsSectionProps {
+  limit?: number;
+  isHome?: boolean;
+}
 
-export const ProjectsSection: React.FC = () => {
+export const ProjectsSection: React.FC<ProjectsSectionProps> = ({ limit, isHome = false }) => {
   const { language, t } = useLanguage();
+  const navigate = useNavigate();
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   
@@ -103,8 +108,11 @@ export const ProjectsSection: React.FC = () => {
     }
   };
 
+  // Determine which projects to show based on limit
+  const displayedProjects = limit ? projects.slice(0, limit) : projects;
+
   return (
-    <div className="py-16 bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
+    <div className={`py-16 transition-colors duration-300 ${isHome ? 'bg-gray-50 dark:bg-gray-900' : 'bg-gray-50 dark:bg-gray-900'}`}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-16">
           <span className="text-kmmr-green font-bold uppercase tracking-widest text-sm mb-2 block">{t('projects.tag')}</span>
@@ -119,66 +127,80 @@ export const ProjectsSection: React.FC = () => {
             <Loader2 className="animate-spin text-kmmr-blue dark:text-blue-400 w-10 h-10" />
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {projects.map((project) => {
-              const active = isActiveProject(project);
-              const title = getProjectTitle(project);
-              const desc = getProjectDesc(project);
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {displayedProjects.map((project) => {
+                const active = isActiveProject(project);
+                const title = getProjectTitle(project);
+                const desc = getProjectDesc(project);
 
-              return (
-                <div 
-                  key={project.id} 
-                  onClick={() => setSelectedProject(project)}
-                  className="bg-white dark:bg-gray-800 rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300 flex flex-col h-full animate-fade-in-up cursor-pointer group transform hover:-translate-y-1 border border-gray-100 dark:border-gray-700"
+                return (
+                  <div 
+                    key={project.id} 
+                    onClick={() => setSelectedProject(project)}
+                    className="bg-white dark:bg-gray-800 rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300 flex flex-col h-full animate-fade-in-up cursor-pointer group transform hover:-translate-y-1 border border-gray-100 dark:border-gray-700"
+                  >
+                    <div className="h-48 overflow-hidden relative">
+                      <img 
+                        src={project.image} 
+                        alt={title} 
+                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                      />
+                      
+                      <div className="absolute inset-0 bg-kmmr-blue/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
+                        <span className="text-white font-bold border border-white/80 bg-white/20 backdrop-blur-sm px-4 py-2 rounded-full">
+                          {t('projects.details')}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="p-6 flex-grow flex flex-col">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2 text-sm text-kmmr-pink font-semibold">
+                            <Calendar size={14} />
+                            <span>{project.date}</span>
+                        </div>
+                        {active && (
+                          <span className="bg-green-100 text-green-700 text-[10px] font-bold px-2 py-0.5 rounded uppercase">Активно</span>
+                        )}
+                      </div>
+                      
+                      <h3 className="text-xl font-bold text-kmmr-blue dark:text-white mb-3 line-clamp-2">{title}</h3>
+                      <p className="text-gray-600 dark:text-gray-400 text-sm mb-6 flex-grow line-clamp-3">{desc}</p>
+                      
+                      <button 
+                        onClick={(e) => {
+                          if (active) {
+                            e.stopPropagation();
+                            handleRegisterClick(project);
+                          }
+                        }}
+                        className={`mt-auto w-full flex items-center justify-center gap-2 py-3 rounded-xl transition-all duration-300 font-bold ${
+                          active 
+                            ? 'bg-kmmr-pink text-white hover:bg-pink-600 shadow-md hover:shadow-lg' 
+                            : 'bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-300 group-hover:bg-kmmr-blue group-hover:text-white dark:group-hover:bg-blue-400 dark:group-hover:text-white'
+                        }`}
+                      >
+                        {active ? 'Реєстрація' : t('projects.details')}
+                        <ArrowRight size={16} />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {limit && (
+              <div className="mt-12 text-center animate-fade-in-up">
+                <button 
+                  onClick={() => navigate('/projects')}
+                  className="inline-flex items-center gap-2 px-8 py-4 bg-transparent border-2 border-kmmr-blue dark:border-blue-400 text-kmmr-blue dark:text-blue-400 rounded-full font-bold uppercase tracking-wider hover:bg-kmmr-blue hover:text-white dark:hover:bg-blue-400 dark:hover:text-gray-900 transition-all duration-300"
                 >
-                  <div className="h-48 overflow-hidden relative">
-                    <img 
-                      src={project.image} 
-                      alt={title} 
-                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                    />
-                    
-                    <div className="absolute inset-0 bg-kmmr-blue/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
-                      <span className="text-white font-bold border border-white/80 bg-white/20 backdrop-blur-sm px-4 py-2 rounded-full">
-                        {t('projects.details')}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="p-6 flex-grow flex flex-col">
-                    <div className="flex items-center justify-between mb-3">
-                       <div className="flex items-center gap-2 text-sm text-kmmr-pink font-semibold">
-                          <Calendar size={14} />
-                          <span>{project.date}</span>
-                       </div>
-                       {active && (
-                         <span className="bg-green-100 text-green-700 text-[10px] font-bold px-2 py-0.5 rounded uppercase">Активно</span>
-                       )}
-                    </div>
-                    
-                    <h3 className="text-xl font-bold text-kmmr-blue dark:text-white mb-3 line-clamp-2">{title}</h3>
-                    <p className="text-gray-600 dark:text-gray-400 text-sm mb-6 flex-grow line-clamp-3">{desc}</p>
-                    
-                    <button 
-                      onClick={(e) => {
-                        if (active) {
-                          e.stopPropagation();
-                          handleRegisterClick(project);
-                        }
-                      }}
-                      className={`mt-auto w-full flex items-center justify-center gap-2 py-3 rounded-xl transition-all duration-300 font-bold ${
-                        active 
-                          ? 'bg-kmmr-pink text-white hover:bg-pink-600 shadow-md hover:shadow-lg' 
-                          : 'bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-300 group-hover:bg-kmmr-blue group-hover:text-white dark:group-hover:bg-blue-400 dark:group-hover:text-white'
-                      }`}
-                    >
-                      {active ? 'Реєстрація' : t('projects.details')}
-                      <ArrowRight size={16} />
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+                  {t('projects.viewAll')}
+                  <ArrowRight size={20} />
+                </button>
+              </div>
+            )}
+          </>
         )}
       </div>
 

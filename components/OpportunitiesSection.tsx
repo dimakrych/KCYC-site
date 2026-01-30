@@ -2,12 +2,10 @@ import React, { useEffect, useState } from 'react';
 import { OPPORTUNITIES_UK, OPPORTUNITIES_EN, PROJECTS_UK, PROJECTS_EN } from '../constants';
 import { Clock, Loader2, CalendarOff } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
-import * as firestore from 'firebase/firestore';
+import { collection, getDocs, query } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 import { Opportunity, Project } from '../types';
 import { ApplicationModal } from './ApplicationModal';
-
-const { collection, getDocs, query } = firestore;
 
 export const OpportunitiesSection: React.FC = () => {
   const { language, t } = useLanguage();

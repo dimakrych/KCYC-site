@@ -2,11 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { SDGS_UK, SDGS_EN, PARTNER_GROUPS_UK, PARTNER_GROUPS_EN, TIMELINE_EVENTS_UK, TIMELINE_EVENTS_EN } from '../constants';
 import { Target, Flag, Users, HeartHandshake } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
-import * as firestore from 'firebase/firestore';
+import { collection, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 import { PartnerItem, PartnerType } from '../types';
-
-const { collection, query, onSnapshot } = firestore;
 
 export const AboutSection: React.FC = () => {
   const { language, t } = useLanguage();
