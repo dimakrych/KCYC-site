@@ -75,7 +75,7 @@ export const Navbar: React.FC = () => {
 
               <button
                 onClick={() => navigate('/contacts')}
-                className="bg-kmmr-green text-white px-6 py-2.5 rounded-full font-bold uppercase text-xs tracking-wider hover:bg-opacity-90 transition-all transform hover:scale-105 shadow-lg shadow-kmmr-green/30"
+                className="bg-kmmr-pink text-white px-6 py-2.5 rounded-full font-bold uppercase text-xs tracking-wider hover:bg-opacity-90 transition-all transform hover:scale-105 shadow-lg shadow-kmmr-pink/30"
               >
                 {t('nav.join')}
               </button>
@@ -133,7 +133,7 @@ export const Navbar: React.FC = () => {
             <div className="pt-4">
               <button
                 onClick={handleJoinClick}
-                className="w-full bg-kmmr-green text-white px-6 py-3 rounded-lg font-bold uppercase hover:bg-opacity-90"
+                className="w-full bg-kmmr-pink text-white px-6 py-3 rounded-lg font-bold uppercase hover:bg-opacity-90"
               >
                 {t('nav.join')}
               </button>

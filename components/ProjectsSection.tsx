@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { PROJECTS_UK, PROJECTS_EN } from '../constants';
 import { ExternalLink, Calendar, Loader2, ArrowRight, Clock } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
-import * as firestore from 'firebase/firestore';
+import { onSnapshot, query, collection } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 import { Project, Opportunity } from '../types';
 import { Modal } from './ui/Modal';
@@ -27,9 +27,9 @@ export const ProjectsSection: React.FC<ProjectsSectionProps> = ({ limit, isHome 
   // Fetch projects from Firebase with Realtime Listener
   useEffect(() => {
     setLoading(true);
-    const q = firestore.query(firestore.collection(db, "projects"));
+    const q = query(collection(db, "projects"));
     
-    const unsubscribe = firestore.onSnapshot(q, (snapshot) => {
+    const unsubscribe = onSnapshot(q, (snapshot) => {
       const fetchedProjects: Project[] = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()

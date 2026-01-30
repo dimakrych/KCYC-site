@@ -3,7 +3,7 @@ import {
   Users, FileText, Calendar, LogOut, Plus, Search, Trash2, Edit2, Download, Briefcase, CheckCircle, XCircle, Clock, Loader2, Save, GripVertical, List, Languages, Image as ImageIcon, Smile, Filter, ChevronDown, ChevronUp, Building2, Palette, Handshake, Link as LinkIcon, Settings, Mail, Instagram, Menu, X
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import * as firestore from 'firebase/firestore';
+import { onSnapshot, query, collection, orderBy, updateDoc, doc, deleteDoc, writeBatch, addDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '../firebaseConfig';
 import { useAuth } from '../context/AuthContext';
@@ -90,12 +90,12 @@ export const AdminDashboard: React.FC = () => {
   // --- FETCH DATA (Realtime Listeners) ---
   useEffect(() => {
     try {
-      const unsubSubmissions = firestore.onSnapshot(firestore.query(firestore.collection(db, "submissions"), firestore.orderBy("createdAt", "desc")), (snapshot) => {
+      const unsubSubmissions = onSnapshot(query(collection(db, "submissions"), orderBy("createdAt", "desc")), (snapshot) => {
         const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
         setSubmissions(data);
       }, (error) => console.error("Submissions listener error:", error));
 
-      const unsubProjects = firestore.onSnapshot(firestore.collection(db, "projects"), (snapshot) => {
+      const unsubProjects = onSnapshot(collection(db, "projects"), (snapshot) => {
         const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Project));
         data.sort((a,b) => {
           const orderA = a.order !== undefined ? a.order : 999;
@@ -105,7 +105,7 @@ export const AdminDashboard: React.FC = () => {
         setProjects(data);
       }, (error) => console.error("Projects listener error:", error));
 
-      const unsubDocs = firestore.onSnapshot(firestore.collection(db, "documents"), (snapshot) => {
+      const unsubDocs = onSnapshot(collection(db, "documents"), (snapshot) => {
         const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as DocumentItem));
         data.sort((a,b) => {
           const orderA = a.order !== undefined ? a.order : 999;
@@ -115,12 +115,12 @@ export const AdminDashboard: React.FC = () => {
         setDocuments(data);
       }, (error) => console.error("Docs listener error:", error));
       
-      const unsubOpps = firestore.onSnapshot(firestore.collection(db, "opportunities"), (snapshot) => {
+      const unsubOpps = onSnapshot(collection(db, "opportunities"), (snapshot) => {
         const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Opportunity));
         setOpportunities(data);
       }, (error) => console.error("Opps listener error:", error));
 
-      const unsubTeam = firestore.onSnapshot(firestore.collection(db, "team"), (snapshot) => {
+      const unsubTeam = onSnapshot(collection(db, "team"), (snapshot) => {
         const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as TeamMember));
         data.sort((a,b) => {
           const orderA = a.order !== undefined ? a.order : 999;
@@ -130,7 +130,7 @@ export const AdminDashboard: React.FC = () => {
         setTeamMembers(data);
       }, (error) => console.error("Team listener error:", error));
 
-      const unsubDepts = firestore.onSnapshot(firestore.collection(db, "departments"), (snapshot) => {
+      const unsubDepts = onSnapshot(collection(db, "departments"), (snapshot) => {
         const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Department));
         data.sort((a,b) => {
           const orderA = a.order !== undefined ? a.order : 999;
@@ -141,7 +141,7 @@ export const AdminDashboard: React.FC = () => {
         setDepartments(data);
       }, (error) => console.error("Departments listener error:", error));
 
-      const unsubPartners = firestore.onSnapshot(firestore.collection(db, "partners"), (snapshot) => {
+      const unsubPartners = onSnapshot(collection(db, "partners"), (snapshot) => {
         const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as PartnerItem));
         data.sort((a,b) => {
           const orderA = a.order !== undefined ? a.order : 999;
@@ -151,7 +151,7 @@ export const AdminDashboard: React.FC = () => {
         setPartners(data);
       }, (error) => console.error("Partners listener error:", error));
 
-      const unsubPartnerTypes = firestore.onSnapshot(firestore.collection(db, "partner_types"), (snapshot) => {
+      const unsubPartnerTypes = onSnapshot(collection(db, "partner_types"), (snapshot) => {
         const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as PartnerType));
         data.sort((a,b) => {
           const orderA = a.order !== undefined ? a.order : 999;
@@ -197,14 +197,14 @@ export const AdminDashboard: React.FC = () => {
 
   const updateStatus = async (id: string, newStatus: ContactSubmission['status']) => {
     try {
-      await firestore.updateDoc(firestore.doc(db, "submissions", id), { status: newStatus });
+      await updateDoc(doc(db, "submissions", id), { status: newStatus });
     } catch (e) { handleFirebaseError(e, 'оновлення статусу'); }
   };
 
   const deleteItem = async (collectionName: string, id: string) => {
     if(confirm('Ви впевнені, що хочете видалити цей запис?')) {
       try {
-        await firestore.deleteDoc(firestore.doc(db, collectionName, id));
+        await deleteDoc(doc(db, collectionName, id));
       } catch (e: any) {
         handleFirebaseError(e, 'видалення запису');
       }
@@ -230,9 +230,9 @@ export const AdminDashboard: React.FC = () => {
 
     // Update Order in DB
     try {
-      const batch = firestore.writeBatch(db);
+      const batch = writeBatch(db);
       updatedList.forEach((item, idx) => {
-        batch.update(firestore.doc(db, collectionName, item.id), { order: idx });
+        batch.update(doc(db, collectionName, item.id), { order: idx });
       });
       await batch.commit();
     } catch (error: any) {
@@ -258,14 +258,14 @@ export const AdminDashboard: React.FC = () => {
      setPartners(newFullList);
 
      try {
-       const batch = firestore.writeBatch(db);
+       const batch = writeBatch(db);
        // Re-order the filtered list items' order field to be sequential relative to each other
        // Or simpler: just update order field of visible partners based on new sequence
        // But to support mixing with drag and drop, we should probably just swap their 'order' values if distinct, or re-index.
        // Re-indexing visible list:
        const newVisible = newFullList.filter(p => p.type === partnerFilterType);
        newVisible.forEach((item, idx) => {
-          batch.update(firestore.doc(db, "partners", item.id), { order: idx });
+          batch.update(doc(db, "partners", item.id), { order: idx });
        });
        await batch.commit();
      } catch(e) { console.error(e); }
@@ -288,11 +288,11 @@ export const AdminDashboard: React.FC = () => {
      setTeamMembers(newFullList);
 
      try {
-       const batch = firestore.writeBatch(db);
+       const batch = writeBatch(db);
        // Re-index only visible members to maintain their relative order
        const newVisible = newFullList.filter(m => teamFilterDept === 'all' || m.department === teamFilterDept);
        newVisible.forEach((item, idx) => {
-          batch.update(firestore.doc(db, "team", item.id), { order: idx });
+          batch.update(doc(db, "team", item.id), { order: idx });
        });
        await batch.commit();
      } catch(e) { console.error(e); }
@@ -315,9 +315,9 @@ export const AdminDashboard: React.FC = () => {
     setDepartments(updated);
     setDraggedDeptIndex(null);
     try {
-      const batch = firestore.writeBatch(db);
+      const batch = writeBatch(db);
       updated.forEach((item, index) => {
-        batch.update(firestore.doc(db, "departments", item.id), { order: index });
+        batch.update(doc(db, "departments", item.id), { order: index });
       });
       await batch.commit();
     } catch (error: any) { handleFirebaseError(error, 'оновлення порядку департаментів'); }
@@ -332,9 +332,9 @@ export const AdminDashboard: React.FC = () => {
     setProjects(updated);
     setDraggedProjectIndex(null);
     try {
-      const batch = firestore.writeBatch(db);
+      const batch = writeBatch(db);
       updated.forEach((item, index) => {
-        batch.update(firestore.doc(db, "projects", item.id), { order: index });
+        batch.update(doc(db, "projects", item.id), { order: index });
       });
       await batch.commit();
     } catch (error: any) { handleFirebaseError(error, 'оновлення порядку проєктів'); }
@@ -349,9 +349,9 @@ export const AdminDashboard: React.FC = () => {
     setDocuments(updated);
     setDraggedDocIndex(null);
     try {
-      const batch = firestore.writeBatch(db);
+      const batch = writeBatch(db);
       updated.forEach((item, index) => {
-        batch.update(firestore.doc(db, "documents", item.id), { order: index });
+        batch.update(doc(db, "documents", item.id), { order: index });
       });
       await batch.commit();
     } catch (error: any) { handleFirebaseError(error, 'оновлення порядку документів'); }
@@ -366,9 +366,9 @@ export const AdminDashboard: React.FC = () => {
     setPartnerTypes(updated);
     setDraggedPartnerTypeIndex(null);
     try {
-      const batch = firestore.writeBatch(db);
+      const batch = writeBatch(db);
       updated.forEach((item, index) => {
-        batch.update(firestore.doc(db, "partner_types", item.id), { order: index });
+        batch.update(doc(db, "partner_types", item.id), { order: index });
       });
       await batch.commit();
     } catch (error: any) { handleFirebaseError(error, 'оновлення порядку типів партнерів'); }
@@ -392,9 +392,9 @@ export const AdminDashboard: React.FC = () => {
     setDraggedPartnerIndex(null);
 
     try {
-      const batch = firestore.writeBatch(db);
+      const batch = writeBatch(db);
       updatedFiltered.forEach((item, index) => {
-        batch.update(firestore.doc(db, "partners", item.id), { order: index });
+        batch.update(doc(db, "partners", item.id), { order: index });
       });
       await batch.commit();
     } catch (error: any) { handleFirebaseError(error, 'оновлення порядку партнерів'); }
@@ -421,9 +421,9 @@ export const AdminDashboard: React.FC = () => {
     setDraggedMemberIndex(null);
 
     try {
-      const batch = firestore.writeBatch(db);
+      const batch = writeBatch(db);
       updatedFiltered.forEach((item, index) => {
-        batch.update(firestore.doc(db, "team", item.id), { order: index });
+        batch.update(doc(db, "team", item.id), { order: index });
       });
       await batch.commit();
     } catch (error: any) { handleFirebaseError(error, 'оновлення порядку команди'); }
@@ -570,9 +570,9 @@ export const AdminDashboard: React.FC = () => {
        };
 
        if (newPartnerType.id) {
-          await firestore.updateDoc(firestore.doc(db, "partner_types", newPartnerType.id), typePayload);
+          await updateDoc(doc(db, "partner_types", newPartnerType.id), typePayload);
        } else {
-          await firestore.addDoc(firestore.collection(db, "partner_types"), typePayload);
+          await addDoc(collection(db, "partner_types"), typePayload);
        }
 
        setIsAddingPartnerType(false);
@@ -620,9 +620,9 @@ export const AdminDashboard: React.FC = () => {
       };
 
       if (newPartner.id) {
-         await firestore.updateDoc(firestore.doc(db, "partners", newPartner.id), partnerPayload);
+         await updateDoc(doc(db, "partners", newPartner.id), partnerPayload);
       } else {
-         await firestore.addDoc(firestore.collection(db, "partners"), partnerPayload);
+         await addDoc(collection(db, "partners"), partnerPayload);
       }
 
       setIsAddingPartner(false);
@@ -680,9 +680,9 @@ export const AdminDashboard: React.FC = () => {
       };
 
       if (newTeamMember.id) {
-        await firestore.updateDoc(firestore.doc(db, "team", newTeamMember.id), teamPayload);
+        await updateDoc(doc(db, "team", newTeamMember.id), teamPayload);
       } else {
-        await firestore.addDoc(firestore.collection(db, "team"), teamPayload);
+        await addDoc(collection(db, "team"), teamPayload);
       }
 
       setIsAddingTeam(false);
@@ -719,9 +719,9 @@ export const AdminDashboard: React.FC = () => {
        };
 
        if (newDept.id) {
-          await firestore.updateDoc(firestore.doc(db, "departments", newDept.id), deptPayload);
+          await updateDoc(doc(db, "departments", newDept.id), deptPayload);
        } else {
-          await firestore.addDoc(firestore.collection(db, "departments"), deptPayload);
+          await addDoc(collection(db, "departments"), deptPayload);
        }
 
        setIsAddingDept(false);
@@ -768,11 +768,19 @@ export const AdminDashboard: React.FC = () => {
       };
 
       if (newProject.id) {
-         await firestore.updateDoc(firestore.doc(db, "projects", newProject.id), projectPayload);
+         await updateDoc(doc(db, "projects", newProject.id), projectPayload);
       } else {
-         await firestore.addDoc(firestore.collection(db, "projects"), {
+         // Logic to add to the TOP of the list:
+         // 1. Find the current MIN order
+         const currentOrders = projects.map(p => p.order !== undefined ? p.order : 9999);
+         const minOrder = currentOrders.length > 0 ? Math.min(...currentOrders) : 0;
+         
+         // 2. Assign new order as minOrder - 1
+         const newOrder = minOrder - 1;
+
+         await addDoc(collection(db, "projects"), {
             ...projectPayload,
-            order: projects.length
+            order: newOrder
          });
       }
 
@@ -849,9 +857,9 @@ export const AdminDashboard: React.FC = () => {
       };
 
       if (newOpp.id) {
-         await firestore.updateDoc(firestore.doc(db, "opportunities", newOpp.id), oppPayload);
+         await updateDoc(doc(db, "opportunities", newOpp.id), oppPayload);
       } else {
-         await firestore.addDoc(firestore.collection(db, "opportunities"), oppPayload);
+         await addDoc(collection(db, "opportunities"), oppPayload);
       }
       
       setIsAddingOpp(false);
@@ -869,7 +877,7 @@ export const AdminDashboard: React.FC = () => {
       setLoading(true);
       try {
         const url = await handleFileUpload(file, 'documents');
-        await firestore.addDoc(firestore.collection(db, "documents"), {
+        await addDoc(collection(db, "documents"), {
           title: file.name,
           type: file.name.split('.').pop()?.toUpperCase() || 'FILE',
           date: new Date().toLocaleDateString('uk-UA'),
@@ -1096,7 +1104,7 @@ export const AdminDashboard: React.FC = () => {
                           ) : (
                               <div className="text-sm">
                                 <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded mr-2">Контакт</span>
-                                <span className="font-semibold text-gray-700">{sub.department || 'Загальне'}</span>
+                                <span className="font-semibold text-gray-700">{sub.department || 'Загальне питання'}</span>
                               </div>
                           )}
                        </div>

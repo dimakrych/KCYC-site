@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Send, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
+import { Send, Loader2, CheckCircle, AlertCircle, Users } from 'lucide-react';
 import { submitContactForm, ContactFormData } from '../services/api';
 import { useLanguage } from '../context/LanguageContext';
 
@@ -36,36 +36,45 @@ export const ContactsSection: React.FC = () => {
   };
 
   return (
-    <div className="py-20 bg-kmmr-blue text-white relative overflow-hidden">
-      
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+    <div className="py-24 bg-[#0F172A] text-white relative overflow-hidden flex items-center justify-center">
+       {/* Background decorative circles - Unique Colors for Contacts */}
+       <div className="absolute top-0 left-0 w-96 h-96 bg-kmmr-pink/30 rounded-full blur-[100px] translate-y-[-20%] translate-x-[-20%]"></div>
+       <div className="absolute bottom-0 right-0 w-96 h-96 bg-kmmr-green/20 rounded-full blur-[100px] translate-y-[20%] translate-x-[20%]"></div>
+
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 w-full">
         <div className="text-center mb-12">
-          <h2 className="text-4xl font-black mb-4">{t('contacts.title')}</h2>
-          <p className="text-gray-300">{t('contacts.subtitle')}</p>
+          <div className="flex justify-center mb-6">
+             <div className="p-4 bg-[#1E293B] rounded-2xl border border-white/5 shadow-lg shadow-kmmr-pink/10">
+                <Users size={40} className="text-kmmr-pink"/>
+             </div>
+          </div>
+          <h2 className="text-3xl md:text-5xl font-black mb-6">{t('contacts.title')}</h2>
+          <p className="text-gray-400 max-w-2xl mx-auto text-sm md:text-base leading-relaxed">{t('contacts.subtitle')}</p>
         </div>
 
-        <div className="bg-white/10 backdrop-blur-md p-8 md:p-12 rounded-3xl border border-white/10 shadow-2xl">
+        <div className="bg-[#1E293B]/80 backdrop-blur-xl rounded-3xl border border-white/5 shadow-2xl overflow-hidden p-1">
           {status === 'success' ? (
-            <div className="flex flex-col items-center justify-center py-12 text-center animate-fade-in-up">
-              <div className="w-20 h-20 bg-kmmr-green rounded-full flex items-center justify-center mb-6">
+            <div className="flex flex-col items-center justify-center py-20 text-center animate-fade-in-up">
+              <div className="w-20 h-20 bg-kmmr-pink rounded-full flex items-center justify-center mb-6 shadow-lg shadow-kmmr-pink/20">
                 <CheckCircle size={40} className="text-white" />
               </div>
-              <h3 className="text-2xl font-bold mb-2">{t('contacts.successTitle')}</h3>
-              <p className="text-gray-300 max-w-md">
+              <h3 className="text-3xl font-bold mb-3 text-white">{t('contacts.successTitle')}</h3>
+              <p className="text-gray-400 max-w-md">
                 {t('contacts.successDesc')}
               </p>
               <button 
                 onClick={() => setStatus('idle')}
-                className="mt-8 text-kmmr-green font-bold hover:text-white transition-colors"
+                className="mt-8 bg-[#0F172A] text-white border border-white/10 px-8 py-3 rounded-xl font-bold hover:bg-white/5 transition-all"
               >
                 {t('contacts.retryBtn')}
               </button>
             </div>
           ) : (
-            <form onSubmit={handleSubmit}>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            <form onSubmit={handleSubmit} className="p-6 md:p-10 space-y-6">
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
-                  <label className="text-sm font-bold uppercase tracking-wide text-gray-300">{t('contacts.labels.name')}</label>
+                  <label className="text-xs font-bold uppercase tracking-wider text-gray-400 ml-1">{t('contacts.labels.name')}</label>
                   <input 
                     type="text" 
                     name="name"
@@ -73,12 +82,12 @@ export const ContactsSection: React.FC = () => {
                     onChange={handleChange}
                     required
                     disabled={status === 'loading'}
-                    className="w-full bg-black/20 border border-white/20 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-kmmr-green transition-colors disabled:opacity-50 placeholder-gray-400"
+                    className="w-full bg-[#0F172A] border border-white/10 rounded-xl px-5 py-4 text-white focus:outline-none focus:border-kmmr-pink/50 focus:ring-1 focus:ring-kmmr-pink/50 transition-all placeholder-gray-600 text-sm"
                     placeholder={t('contacts.placeholders.name')}
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-bold uppercase tracking-wide text-gray-300">{t('contacts.labels.phone')}</label>
+                  <label className="text-xs font-bold uppercase tracking-wider text-gray-400 ml-1">{t('contacts.labels.phone')}</label>
                   <input 
                     type="tel" 
                     name="phone"
@@ -86,15 +95,15 @@ export const ContactsSection: React.FC = () => {
                     onChange={handleChange}
                     required
                     disabled={status === 'loading'}
-                    className="w-full bg-black/20 border border-white/20 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-kmmr-green transition-colors disabled:opacity-50 placeholder-gray-400"
+                    className="w-full bg-[#0F172A] border border-white/10 rounded-xl px-5 py-4 text-white focus:outline-none focus:border-kmmr-pink/50 focus:ring-1 focus:ring-kmmr-pink/50 transition-all placeholder-gray-600 text-sm"
                     placeholder="+380..."
                   />
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                  <div className="space-y-2">
-                  <label className="text-sm font-bold uppercase tracking-wide text-gray-300">{t('contacts.labels.email')}</label>
+                  <label className="text-xs font-bold uppercase tracking-wider text-gray-400 ml-1">{t('contacts.labels.email')}</label>
                   <input 
                     type="email" 
                     name="email"
@@ -102,54 +111,59 @@ export const ContactsSection: React.FC = () => {
                     onChange={handleChange}
                     required
                     disabled={status === 'loading'}
-                    className="w-full bg-black/20 border border-white/20 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-kmmr-green transition-colors disabled:opacity-50 placeholder-gray-400"
+                    className="w-full bg-[#0F172A] border border-white/10 rounded-xl px-5 py-4 text-white focus:outline-none focus:border-kmmr-pink/50 focus:ring-1 focus:ring-kmmr-pink/50 transition-all placeholder-gray-600 text-sm"
                     placeholder="email@example.com"
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-bold uppercase tracking-wide text-gray-300">{t('contacts.labels.dept')}</label>
-                  <select 
-                    name="department"
-                    value={formData.department}
-                    onChange={handleChange}
-                    disabled={status === 'loading'}
-                    className="w-full bg-black/20 border border-white/20 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-kmmr-green transition-colors appearance-none disabled:opacity-50"
-                  >
-                    <option value="" className="text-gray-800 bg-white">{t('contacts.placeholders.dept')}</option>
-                    <option value="smm" className="text-gray-800 bg-white">SMM</option>
-                    <option value="projects" className="text-gray-800 bg-white">Projects</option>
-                    <option value="pr" className="text-gray-800 bg-white">PR</option>
-                    <option value="fundraising" className="text-gray-800 bg-white">Fundraising</option>
-                    <option value="helpers" className="text-gray-800 bg-white">Volunteering</option>
-                  </select>
+                  <label className="text-xs font-bold uppercase tracking-wider text-gray-400 ml-1">{t('contacts.labels.dept')}</label>
+                  <div className="relative">
+                    <select 
+                      name="department"
+                      value={formData.department}
+                      onChange={handleChange}
+                      disabled={status === 'loading'}
+                      className="w-full bg-[#0F172A] border border-white/10 rounded-xl px-5 py-4 text-white focus:outline-none focus:border-kmmr-pink/50 focus:ring-1 focus:ring-kmmr-pink/50 transition-all appearance-none cursor-pointer text-sm"
+                    >
+                      <option value="" className="text-gray-500 bg-[#0F172A]">{t('contacts.placeholders.dept')}</option>
+                      <option value="smm" className="bg-[#0F172A] text-white">SMM</option>
+                      <option value="projects" className="bg-[#0F172A] text-white">Projects</option>
+                      <option value="pr" className="bg-[#0F172A] text-white">PR</option>
+                      <option value="fundraising" className="bg-[#0F172A] text-white">Fundraising</option>
+                      <option value="helpers" className="bg-[#0F172A] text-white">Volunteering</option>
+                    </select>
+                    <div className="absolute inset-y-0 right-0 flex items-center px-4 pointer-events-none text-gray-400">
+                      <svg className="w-4 h-4 fill-current" viewBox="0 0 20 20"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" fillRule="evenodd"></path></svg>
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              <div className="space-y-2 mb-8">
-                <label className="text-sm font-bold uppercase tracking-wide text-gray-300">{t('contacts.labels.motivation')}</label>
+              <div className="space-y-2">
+                <label className="text-xs font-bold uppercase tracking-wider text-gray-400 ml-1">{t('contacts.labels.motivation')}</label>
                 <textarea 
                   name="motivation"
                   value={formData.motivation}
                   onChange={handleChange}
                   rows={4}
                   disabled={status === 'loading'}
-                  className="w-full bg-black/20 border border-white/20 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-kmmr-green transition-colors disabled:opacity-50 placeholder-gray-400"
+                  className="w-full bg-[#0F172A] border border-white/10 rounded-xl px-5 py-4 text-white focus:outline-none focus:border-kmmr-pink/50 focus:ring-1 focus:ring-kmmr-pink/50 transition-all placeholder-gray-600 text-sm resize-none"
                   placeholder={t('contacts.placeholders.motivation')}
                 ></textarea>
               </div>
 
               {status === 'error' && (
-                <div className="mb-6 p-4 bg-red-500/20 border border-red-500 rounded-lg flex items-center gap-3 text-red-200">
+                <div className="p-4 bg-red-500/10 border border-red-500/50 rounded-xl flex items-center gap-3 text-red-400">
                   <AlertCircle size={20} />
                   <span>{t('contacts.error')}</span>
                 </div>
               )}
 
-              <div>
+              <div className="pt-4">
                 <button 
                   type="submit"
                   disabled={status === 'loading'}
-                  className="w-full bg-kmmr-pink hover:bg-pink-600 text-white font-bold py-4 rounded-xl uppercase tracking-widest transition-all transform hover:scale-[1.01] flex items-center justify-center gap-2 disabled:opacity-70 disabled:hover:scale-100 disabled:cursor-not-allowed"
+                  className="w-full bg-kmmr-pink text-white font-bold py-4 rounded-xl uppercase tracking-widest transition-all hover:bg-pink-600 active:scale-[0.99] flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed shadow-lg shadow-kmmr-pink/20"
                 >
                   {status === 'loading' ? (
                     <>
@@ -158,11 +172,11 @@ export const ContactsSection: React.FC = () => {
                     </>
                   ) : (
                     <>
-                      {t('contacts.submit')} <Send size={20} />
+                      {t('contacts.submit')} <Send size={18} className="ml-1" />
                     </>
                   )}
                 </button>
-                <p className="text-xs text-gray-400 mt-3 text-center">
+                <p className="text-xs text-gray-500 mt-4 text-center">
                   {t('contacts.consent')}
                 </p>
               </div>

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { DOCUMENTS_LIST_UK, DOCUMENTS_LIST_EN } from '../constants';
 import { FileText, Download, ShieldCheck, ChevronRight, Loader2 } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
-import * as firestore from 'firebase/firestore';
+import { onSnapshot, query, collection } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 import { DocumentItem } from '../types';
 
@@ -23,9 +23,9 @@ export const DocumentsSection: React.FC = () => {
 
   useEffect(() => {
     setLoading(true);
-    const q = firestore.query(firestore.collection(db, "documents"));
+    const q = query(collection(db, "documents"));
     
-    const unsubscribe = firestore.onSnapshot(q, (snapshot) => {
+    const unsubscribe = onSnapshot(q, (snapshot) => {
       const fetchedDocs: DocumentItem[] = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
