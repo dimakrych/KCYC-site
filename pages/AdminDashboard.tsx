@@ -8,17 +8,481 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '../firebaseConfig';
 import { useAuth } from '../context/AuthContext';
 import { ContactSubmission, DocumentItem, Project, Opportunity, FormQuestion, TeamMember, Department, PartnerItem, PartnerType } from '../types';
-// import * as XLSX from 'xlsx';
+// @ts-ignore - using importmap for xlsx
+import * as XLSX from 'xlsx';
 
 export const AdminDashboard: React.FC = () => {
   const navigate = useNavigate();
-  // ...
+  const { logout } = useAuth();
+  const [activeTab, setActiveTab] = useState<'submissions' | 'projects' | 'docs' | 'opportunities' | 'team' | 'partners'>('submissions');
+  const [loading, setLoading] = useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+  // Data States
+  const [submissions, setSubmissions] = useState<ContactSubmission[]>([]);
+  const [documents, setDocuments] = useState<DocumentItem[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [partners, setPartners] = useState<PartnerItem[]>([]);
+  const [partnerTypes, setPartnerTypes] = useState<PartnerType[]>([]);
   
+  // Drag and Drop State
+  const [draggedDeptIndex, setDraggedDeptIndex] = useState<number | null>(null);
+  const [draggedProjectIndex, setDraggedProjectIndex] = useState<number | null>(null);
+  const [draggedDocIndex, setDraggedDocIndex] = useState<number | null>(null);
+  const [draggedPartnerIndex, setDraggedPartnerIndex] = useState<number | null>(null);
+  const [draggedPartnerTypeIndex, setDraggedPartnerTypeIndex] = useState<number | null>(null);
+  const [draggedMemberIndex, setDraggedMemberIndex] = useState<number | null>(null);
+
+  // Submission Filters
+  const [submissionFilter, setSubmissionFilter] = useState<'all' | 'contact' | 'application' | 'newsletter' | 'support'>('all');
+  const [selectedEventFilter, setSelectedEventFilter] = useState<string>('all');
+
+  // Team Filters & State
+  const [teamFilterDept, setTeamFilterDept] = useState<string>('all');
+  const [showDeptManager, setShowDeptManager] = useState(false);
+
+  // Partners State
+  const [partnerFilterType, setPartnerFilterType] = useState<string>(''); // Default to first available type
+  const [showPartnerTypeManager, setShowPartnerTypeManager] = useState(false);
+
+  // Form States
+  const [isAddingProject, setIsAddingProject] = useState(false);
+  const [newProject, setNewProject] = useState<Partial<Project>>({ questions: [], ownershipType: 'own' });
+  const [projectLang, setProjectLang] = useState<'uk' | 'en'>('uk');
+  
+  const [isAddingOpp, setIsAddingOpp] = useState(false);
+  const [newOpp, setNewOpp] = useState<Partial<Opportunity>>({ type: 'Volunteering', questions: [] });
+  const [oppLang, setOppLang] = useState<'uk' | 'en'>('uk');
+
+  const [isAddingTeam, setIsAddingTeam] = useState(false);
+  const [newTeamMember, setNewTeamMember] = useState<Partial<TeamMember>>({ details: [], detailsEn: [] });
+  const [teamLang, setTeamLang] = useState<'uk' | 'en'>('uk');
+  const [teamDetailsStr, setTeamDetailsStr] = useState('');
+  const [teamDetailsEnStr, setTeamDetailsEnStr] = useState('');
+
+  const [isAddingDept, setIsAddingDept] = useState(false);
+  const [newDept, setNewDept] = useState<Partial<Department>>({ color: '#031B47' });
+  const [deptLang, setDeptLang] = useState<'uk' | 'en'>('uk');
+
+  const [isAddingPartner, setIsAddingPartner] = useState(false);
+  const [newPartner, setNewPartner] = useState<Partial<PartnerItem>>({ bgColor: '#ffffff', link: '#' });
+  const [partnerLang, setPartnerLang] = useState<'uk' | 'en'>('uk');
+
+  const [isAddingPartnerType, setIsAddingPartnerType] = useState(false);
+  const [newPartnerType, setNewPartnerType] = useState<Partial<PartnerType>>({ color: '#031B47' });
+  const [partnerTypeLang, setPartnerTypeLang] = useState<'uk' | 'en'>('uk');
+
+  const [fileToUpload, setFileToUpload] = useState<File | null>(null);
+
+  // Helper to handle permission errors nicely
+  const handleFirebaseError = (error: any, action: string) => {
+    console.error(`Error during ${action}:`, error);
+    if (error.code === 'permission-denied') {
+      alert(`Помилка доступу (${action}).\n\nБудь ласка, перевірте 'Firestore Database Rules' або 'Storage Rules' у Firebase Console.\n\nКод помилки: permission-denied`);
+    } else {
+      alert(`Помилка (${action}): ${error.message}`);
+    }
+  };
+
+  // --- FETCH DATA (Realtime Listeners) ---
+  useEffect(() => {
+    try {
+      const unsubSubmissions = onSnapshot(query(collection(db, "submissions"), orderBy("createdAt", "desc")), (snapshot) => {
+        const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
+        setSubmissions(data);
+      }, (error) => console.error("Submissions listener error:", error));
+
+      const unsubProjects = onSnapshot(collection(db, "projects"), (snapshot) => {
+        const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Project));
+        data.sort((a,b) => {
+          const orderA = a.order !== undefined ? a.order : 999;
+          const orderB = b.order !== undefined ? b.order : 999;
+          return orderA - orderB;
+        });
+        setProjects(data);
+      }, (error) => console.error("Projects listener error:", error));
+
+      const unsubDocs = onSnapshot(collection(db, "documents"), (snapshot) => {
+        const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as DocumentItem));
+        data.sort((a,b) => {
+          const orderA = a.order !== undefined ? a.order : 999;
+          const orderB = b.order !== undefined ? b.order : 999;
+          return orderA - orderB;
+        });
+        setDocuments(data);
+      }, (error) => console.error("Docs listener error:", error));
+      
+      const unsubOpps = onSnapshot(collection(db, "opportunities"), (snapshot) => {
+        const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Opportunity));
+        setOpportunities(data);
+      }, (error) => console.error("Opps listener error:", error));
+
+      const unsubTeam = onSnapshot(collection(db, "team"), (snapshot) => {
+        const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as TeamMember));
+        data.sort((a,b) => {
+          const orderA = a.order !== undefined ? a.order : 999;
+          const orderB = b.order !== undefined ? b.order : 999;
+          return orderA - orderB;
+        });
+        setTeamMembers(data);
+      }, (error) => console.error("Team listener error:", error));
+
+      const unsubDepts = onSnapshot(collection(db, "departments"), (snapshot) => {
+        const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Department));
+        data.sort((a,b) => {
+          const orderA = a.order !== undefined ? a.order : 999;
+          const orderB = b.order !== undefined ? b.order : 999;
+          if (orderA !== orderB) return orderA - orderB;
+          return a.name.localeCompare(b.name);
+        });
+        setDepartments(data);
+      }, (error) => console.error("Departments listener error:", error));
+
+      const unsubPartners = onSnapshot(collection(db, "partners"), (snapshot) => {
+        const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as PartnerItem));
+        data.sort((a,b) => {
+          const orderA = a.order !== undefined ? a.order : 999;
+          const orderB = b.order !== undefined ? b.order : 999;
+          return orderA - orderB;
+        });
+        setPartners(data);
+      }, (error) => console.error("Partners listener error:", error));
+
+      const unsubPartnerTypes = onSnapshot(collection(db, "partner_types"), (snapshot) => {
+        const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as PartnerType));
+        data.sort((a,b) => {
+          const orderA = a.order !== undefined ? a.order : 999;
+          const orderB = b.order !== undefined ? b.order : 999;
+          return orderA - orderB;
+        });
+        setPartnerTypes(data);
+        // Set default filter if not set and data exists
+        if (data.length > 0) {
+           setPartnerFilterType(prev => prev || data[0].id);
+        }
+      }, (error) => console.error("Partner Types listener error:", error));
+
+      setLoading(false);
+
+      return () => {
+        unsubSubmissions();
+        unsubProjects();
+        unsubDocs();
+        unsubOpps();
+        unsubTeam();
+        unsubDepts();
+        unsubPartners();
+        unsubPartnerTypes();
+      };
+    } catch (e) {
+      console.error("Setup listeners failed", e);
+      setLoading(false);
+    }
+  }, []);
+
+  // --- ACTIONS ---
+
+  const handleLogout = async () => {
+    await logout();
+    navigate('/login');
+  };
+
+  const handleNavClick = (tab: any) => {
+    setActiveTab(tab);
+    setIsSidebarOpen(false); // Close sidebar on mobile after click
+  };
+
+  const updateStatus = async (id: string, newStatus: ContactSubmission['status']) => {
+    try {
+      await updateDoc(doc(db, "submissions", id), { status: newStatus });
+    } catch (e) { handleFirebaseError(e, 'оновлення статусу'); }
+  };
+
+  const deleteItem = async (collectionName: string, id: string) => {
+    if(confirm('Ви впевнені, що хочете видалити цей запис?')) {
+      try {
+        await deleteDoc(doc(db, collectionName, id));
+      } catch (e: any) {
+        handleFirebaseError(e, 'видалення запису');
+      }
+    }
+  };
+
+  // Helper for move (Mobile support for Drag and Drop replacement)
+  const moveItem = async (
+    index: number, 
+    direction: 'up' | 'down', 
+    list: any[], 
+    setList: (l: any[]) => void, 
+    collectionName: string
+  ) => {
+    if ((direction === 'up' && index === 0) || (direction === 'down' && index === list.length - 1)) return;
+    
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    const updatedList = [...list];
+    
+    // Swap items in local state
+    [updatedList[index], updatedList[targetIndex]] = [updatedList[targetIndex], updatedList[index]];
+    setList(updatedList);
+
+    // Update Order in DB
+    try {
+      const batch = writeBatch(db);
+      updatedList.forEach((item, idx) => {
+        batch.update(doc(db, collectionName, item.id), { order: idx });
+      });
+      await batch.commit();
+    } catch (error: any) {
+      handleFirebaseError(error, `зміна порядку ${collectionName}`);
+    }
+  };
+
+  // Specialized move for Partner (Filtered list)
+  const movePartner = async (index: number, direction: 'up' | 'down') => {
+     const visiblePartners = partners.filter(p => p.type === partnerFilterType);
+     if ((direction === 'up' && index === 0) || (direction === 'down' && index === visiblePartners.length - 1)) return;
+
+     const targetIndex = direction === 'up' ? index - 1 : index + 1;
+     const itemA = visiblePartners[index];
+     const itemB = visiblePartners[targetIndex];
+
+     // Swap in full list by finding indices
+     const idxA = partners.findIndex(p => p.id === itemA.id);
+     const idxB = partners.findIndex(p => p.id === itemB.id);
+     
+     const newFullList = [...partners];
+     [newFullList[idxA], newFullList[idxB]] = [newFullList[idxB], newFullList[idxA]];
+     setPartners(newFullList);
+
+     try {
+       const batch = writeBatch(db);
+       // Re-order the filtered list items' order field to be sequential relative to each other
+       // Or simpler: just update order field of visible partners based on new sequence
+       // But to support mixing with drag and drop, we should probably just swap their 'order' values if distinct, or re-index.
+       // Re-indexing visible list:
+       const newVisible = newFullList.filter(p => p.type === partnerFilterType);
+       newVisible.forEach((item, idx) => {
+          batch.update(doc(db, "partners", item.id), { order: idx });
+       });
+       await batch.commit();
+     } catch(e) { console.error(e); }
+  };
+
+  // Specialized move for Team (Filtered list)
+  const moveTeamMember = async (index: number, direction: 'up' | 'down') => {
+     const visibleMembers = teamMembers.filter(m => teamFilterDept === 'all' || m.department === teamFilterDept);
+     if ((direction === 'up' && index === 0) || (direction === 'down' && index === visibleMembers.length - 1)) return;
+
+     const targetIndex = direction === 'up' ? index - 1 : index + 1;
+     const itemA = visibleMembers[index];
+     const itemB = visibleMembers[targetIndex];
+
+     const idxA = teamMembers.findIndex(m => m.id === itemA.id);
+     const idxB = teamMembers.findIndex(m => m.id === itemB.id);
+
+     const newFullList = [...teamMembers];
+     [newFullList[idxA], newFullList[idxB]] = [newFullList[idxB], newFullList[idxA]];
+     setTeamMembers(newFullList);
+
+     try {
+       const batch = writeBatch(db);
+       // Re-index only visible members to maintain their relative order
+       const newVisible = newFullList.filter(m => teamFilterDept === 'all' || m.department === teamFilterDept);
+       newVisible.forEach((item, idx) => {
+          batch.update(doc(db, "team", item.id), { order: idx });
+       });
+       await batch.commit();
+     } catch(e) { console.error(e); }
+  };
+
+  const handleFileUpload = async (file: File, folder: string): Promise<string> => {
+    const storageRef = ref(storage, `${folder}/${Date.now()}_${file.name}`);
+    await uploadBytes(storageRef, file);
+    return await getDownloadURL(storageRef);
+  };
+
+  // --- DRAG AND DROP HANDLERS ---
+  
+  const handleDragStartDept = (index: number) => setDraggedDeptIndex(index);
+  const handleDropDept = async (dropIndex: number) => {
+    if (draggedDeptIndex === null || draggedDeptIndex === dropIndex) return;
+    const updated = [...departments];
+    const [draggedItem] = updated.splice(draggedDeptIndex, 1);
+    updated.splice(dropIndex, 0, draggedItem);
+    setDepartments(updated);
+    setDraggedDeptIndex(null);
+    try {
+      const batch = writeBatch(db);
+      updated.forEach((item, index) => {
+        batch.update(doc(db, "departments", item.id), { order: index });
+      });
+      await batch.commit();
+    } catch (error: any) { handleFirebaseError(error, 'оновлення порядку департаментів'); }
+  };
+
+  const handleDragStartProject = (index: number) => setDraggedProjectIndex(index);
+  const handleDropProject = async (dropIndex: number) => {
+    if (draggedProjectIndex === null || draggedProjectIndex === dropIndex) return;
+    const updated = [...projects];
+    const [draggedItem] = updated.splice(draggedProjectIndex, 1);
+    updated.splice(dropIndex, 0, draggedItem);
+    setProjects(updated);
+    setDraggedProjectIndex(null);
+    try {
+      const batch = writeBatch(db);
+      updated.forEach((item, index) => {
+        batch.update(doc(db, "projects", item.id), { order: index });
+      });
+      await batch.commit();
+    } catch (error: any) { handleFirebaseError(error, 'оновлення порядку проєктів'); }
+  };
+
+  const handleDragStartDoc = (index: number) => setDraggedDocIndex(index);
+  const handleDropDoc = async (dropIndex: number) => {
+    if (draggedDocIndex === null || draggedDocIndex === dropIndex) return;
+    const updated = [...documents];
+    const [draggedItem] = updated.splice(draggedDocIndex, 1);
+    updated.splice(dropIndex, 0, draggedItem);
+    setDocuments(updated);
+    setDraggedDocIndex(null);
+    try {
+      const batch = writeBatch(db);
+      updated.forEach((item, index) => {
+        batch.update(doc(db, "documents", item.id), { order: index });
+      });
+      await batch.commit();
+    } catch (error: any) { handleFirebaseError(error, 'оновлення порядку документів'); }
+  };
+
+  const handleDragStartPartnerType = (index: number) => setDraggedPartnerTypeIndex(index);
+  const handleDropPartnerType = async (dropIndex: number) => {
+    if (draggedPartnerTypeIndex === null || draggedPartnerTypeIndex === dropIndex) return;
+    const updated = [...partnerTypes];
+    const [draggedItem] = updated.splice(draggedPartnerTypeIndex, 1);
+    updated.splice(dropIndex, 0, draggedItem);
+    setPartnerTypes(updated);
+    setDraggedPartnerTypeIndex(null);
+    try {
+      const batch = writeBatch(db);
+      updated.forEach((item, index) => {
+        batch.update(doc(db, "partner_types", item.id), { order: index });
+      });
+      await batch.commit();
+    } catch (error: any) { handleFirebaseError(error, 'оновлення порядку типів партнерів'); }
+  };
+
+  const handleDragStartPartner = (index: number) => setDraggedPartnerIndex(index);
+  const handleDropPartner = async (dropIndex: number) => {
+    if (draggedPartnerIndex === null || draggedPartnerIndex === dropIndex) return;
+    
+    // We are reordering within the filtered list
+    const filteredList = partners.filter(p => p.type === partnerFilterType);
+    const updatedFiltered = [...filteredList];
+    
+    const [draggedItem] = updatedFiltered.splice(draggedPartnerIndex, 1);
+    updatedFiltered.splice(dropIndex, 0, draggedItem);
+    
+    // Update local state by merging
+    const otherItems = partners.filter(p => p.type !== partnerFilterType);
+    const newFullList = [...otherItems, ...updatedFiltered];
+    setPartners(newFullList);
+    setDraggedPartnerIndex(null);
+
+    try {
+      const batch = writeBatch(db);
+      updatedFiltered.forEach((item, index) => {
+        batch.update(doc(db, "partners", item.id), { order: index });
+      });
+      await batch.commit();
+    } catch (error: any) { handleFirebaseError(error, 'оновлення порядку партнерів'); }
+  };
+
+  const handleDragStartMember = (index: number) => setDraggedMemberIndex(index);
+  const handleDropMember = async (dropIndex: number) => {
+    if (draggedMemberIndex === null || draggedMemberIndex === dropIndex) return;
+
+    // Filter list logic
+    const filteredList = teamMembers.filter(m => teamFilterDept === 'all' || m.department === teamFilterDept);
+    
+    // Check if dragging within filtered context
+    if (dropIndex >= filteredList.length) return;
+
+    const updatedFiltered = [...filteredList];
+    const [draggedItem] = updatedFiltered.splice(draggedMemberIndex, 1);
+    updatedFiltered.splice(dropIndex, 0, draggedItem);
+
+    // Merge back
+    const otherItems = teamMembers.filter(m => !(teamFilterDept === 'all' || m.department === teamFilterDept));
+    const newFullList = [...otherItems, ...updatedFiltered];
+    setTeamMembers(newFullList);
+    setDraggedMemberIndex(null);
+
+    try {
+      const batch = writeBatch(db);
+      updatedFiltered.forEach((item, index) => {
+        batch.update(doc(db, "team", item.id), { order: index });
+      });
+      await batch.commit();
+    } catch (error: any) { handleFirebaseError(error, 'оновлення порядку команди'); }
+  };
+
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault(); 
+  };
+
+  // --- EXTRACT UNIQUE EVENTS FOR FILTER ---
+  const uniqueEvents = useMemo(() => {
+    const events = new Set<string>();
+    submissions.forEach((sub: any) => {
+      if (sub.formType === 'opportunity_application' && sub.opportunityTitle) {
+        events.add(sub.opportunityTitle);
+      }
+    });
+    return Array.from(events);
+  }, [submissions]);
+
+  // --- FILTER LOGIC ---
+  const getFilteredSubmissions = () => {
+    return submissions.filter(sub => {
+      const type = (sub as any).formType;
+      
+      // If we are looking for Newsletter subscribers
+      if (submissionFilter === 'newsletter') {
+         return type === 'newsletter';
+      }
+
+      // If we are looking for Support Requests
+      if (submissionFilter === 'support') {
+         return type === 'initiative_support';
+      }
+
+      // If we are looking for other tabs, EXCLUDE special items
+      if (type === 'newsletter' || type === 'initiative_support') return false;
+
+      const isApp = type === 'opportunity_application';
+      
+      // 1. Filter by Type
+      if (submissionFilter === 'application' && !isApp) return false;
+      if (submissionFilter === 'contact' && isApp) return false;
+
+      // 2. Filter by Event (only if showing applications or all)
+      if (selectedEventFilter !== 'all') {
+         if (!isApp) return false; // Hide contacts if filtering by specific event
+         if ((sub as any).opportunityTitle !== selectedEventFilter) return false;
+      }
+
+      return true;
+    });
+  };
+
+  const filteredSubmissions = getFilteredSubmissions();
+
   // --- EXPORT TO EXCEL ---
   const downloadExcel = () => {
-    alert("Експорт тимчасово недоступний");
-    return;
-    /*
     const dataToExport = getFilteredSubmissions();
     
     if (dataToExport.length === 0) {
@@ -80,7 +544,6 @@ export const AdminDashboard: React.FC = () => {
       ? `Export_${selectedEventFilter.substring(0, 20)}_${new Date().toISOString().split('T')[0]}.xlsx`
       : `Export_All_${new Date().toISOString().split('T')[0]}.xlsx`;
     XLSX.writeFile(workbook, fileName);
-    */
   };
 
   // ... (Keep existing update functions for partners, etc)
