@@ -108,6 +108,12 @@ export const ProjectsSection: React.FC<ProjectsSectionProps> = ({ limit, isHome 
     }
   };
 
+  const getOwnershipLabel = (p: Project) => {
+    if (p.ownershipType === 'support') return t('projects.ownership.support');
+    if (p.ownershipType === 'partner') return p.partnerName || t('projects.ownership.partner');
+    return t('projects.ownership.own');
+  };
+
   // Determine which projects to show based on limit
   const displayedProjects = limit ? projects.slice(0, limit) : projects;
 
@@ -159,9 +165,14 @@ export const ProjectsSection: React.FC<ProjectsSectionProps> = ({ limit, isHome 
                             <Calendar size={14} />
                             <span>{project.date}</span>
                         </div>
-                        {active && (
-                          <span className="bg-green-100 text-green-700 text-[10px] font-bold px-2 py-0.5 rounded uppercase">Активно</span>
-                        )}
+                        <div className="flex items-center gap-2">
+                           <span className="text-[10px] font-bold uppercase text-gray-500 bg-gray-100 px-2 py-0.5 rounded dark:bg-gray-700 dark:text-gray-300">
+                              {getOwnershipLabel(project)}
+                           </span>
+                           {active && (
+                             <span className="bg-green-100 text-green-700 text-[10px] font-bold px-2 py-0.5 rounded uppercase">Активно</span>
+                           )}
+                        </div>
                       </div>
                       
                       <h3 className="text-xl font-bold text-kmmr-blue dark:text-white mb-3 line-clamp-2">{title}</h3>
@@ -214,9 +225,14 @@ export const ProjectsSection: React.FC<ProjectsSectionProps> = ({ limit, isHome 
                 alt={getProjectTitle(selectedProject)} 
                 className="w-full h-full object-cover rounded-t-2xl" 
                />
-               <div className="absolute top-4 left-4 bg-white/90 backdrop-blur px-3 py-1 rounded-full text-sm font-bold text-kmmr-blue flex items-center gap-2 shadow-sm">
-                 <Calendar size={14} /> 
-                 <span>{selectedProject.date}</span>
+               <div className="absolute top-4 left-4 flex flex-col gap-2 items-start">
+                  <div className="bg-white/90 backdrop-blur px-3 py-1 rounded-full text-sm font-bold text-kmmr-blue flex items-center gap-2 shadow-sm">
+                    <Calendar size={14} /> 
+                    <span>{selectedProject.date}</span>
+                  </div>
+                  <div className="bg-white/90 backdrop-blur px-3 py-1 rounded-full text-xs font-bold text-gray-600 shadow-sm uppercase">
+                    {getOwnershipLabel(selectedProject)}
+                  </div>
                </div>
             </div>
             

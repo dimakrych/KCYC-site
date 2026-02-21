@@ -170,7 +170,12 @@ export const translations = {
       desc: 'Ініціативи, які вже змінюють Київ.',
       details: 'Деталі',
       insta: 'Дивитись в Instagram',
-      viewAll: 'Всі проєкти'
+      viewAll: 'Всі проєкти',
+      ownership: {
+        own: 'Наш проєкт',
+        support: 'За нашої підтримки',
+        partner: 'Партнерський проєкт'
+      }
     },
     opportunities: {
       tag: 'Розвиток',
@@ -380,7 +385,12 @@ export const translations = {
       desc: 'Initiatives that are already changing Kyiv.',
       details: 'Details',
       insta: 'View on Instagram',
-      viewAll: 'All Projects'
+      viewAll: 'All Projects',
+      ownership: {
+        own: 'Our Project',
+        support: 'With Our Support',
+        partner: 'Partner Project'
+      }
     },
     opportunities: {
       tag: 'Development',

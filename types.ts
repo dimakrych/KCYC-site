@@ -42,6 +42,8 @@ export interface Project {
   instagramLink?: string;
   questions?: FormQuestion[]; // Custom form configuration specific to this project
   order?: number; // Sorting order
+  ownershipType?: 'own' | 'support' | 'partner';
+  partnerName?: string;
 }
 
 export type FormFieldType = 'text' | 'textarea' | 'social' | 'select';
