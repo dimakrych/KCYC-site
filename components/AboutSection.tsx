@@ -125,7 +125,7 @@ export const AboutSection: React.FC = () => {
                   
                   {/* Year/Label Column */}
                   <div className="md:col-span-1 hidden md:flex justify-end items-center pr-8 pt-4">
-                    <span className="text-2xl font-black text-gray-400 dark:text-gray-500 uppercase tracking-wider text-right w-full">
+                    <span className="text-2xl font-black text-gray-400 dark:text-gray-500 uppercase tracking-wider text-right whitespace-nowrap">
                       {event.year}
                     </span>
                   </div>

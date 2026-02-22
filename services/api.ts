@@ -27,7 +27,7 @@ export interface ApplicationFormData {
   opportunityTitle: string;
   type: string;
   // Dynamic fields storage
-  answers: Record<string, string>; 
+  answers: Record<string, string | string[]>; 
   // Legacy support fields (optional)
   socialLink?: string;
 }

@@ -41,6 +41,7 @@ export interface Project {
   image: string;
   instagramLink?: string;
   questions?: FormQuestion[]; // Custom form configuration specific to this project
+  hasRegistration?: boolean; // Whether the project has a registration form
   order?: number; // Sorting order
   ownershipType?: 'own' | 'support' | 'partner';
   partnerName?: string;
@@ -55,6 +56,7 @@ export interface FormQuestion {
   placeholder?: string;
   required: boolean;
   options?: string[]; // For select inputs
+  allowMultiple?: boolean; // For select inputs: true = checkboxes, false = radio
 }
 
 export interface Opportunity {

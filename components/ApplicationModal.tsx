@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Send, Loader2, CheckCircle, AlertCircle, AtSign } from 'lucide-react';
+import { Send, Loader2, CheckCircle, AlertCircle, AtSign, Check } from 'lucide-react';
 import { Modal } from './ui/Modal';
 import { useLanguage } from '../context/LanguageContext';
 import { submitApplicationForm } from '../services/api';
@@ -44,7 +44,7 @@ export const ApplicationModal: React.FC<ApplicationModalProps> = ({ isOpen, onCl
   });
 
   // Dynamic answers storage
-  const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [answers, setAnswers] = useState<Record<string, string | string[]>>({});
   
   // Specific state for social media inputs helper
   const [socialState, setSocialState] = useState<{platform: string, handle: string}>({
@@ -72,8 +72,20 @@ export const ApplicationModal: React.FC<ApplicationModalProps> = ({ isOpen, onCl
     setStaticData({ ...staticData, [e.target.name]: e.target.value });
   };
 
-  const handleAnswerChange = (id: string, value: string) => {
+  const handleAnswerChange = (id: string, value: string | string[]) => {
     setAnswers(prev => ({ ...prev, [id]: value }));
+  };
+
+  const handleCheckboxChange = (id: string, option: string, checked: boolean) => {
+    setAnswers(prev => {
+        const val = prev[id];
+        const current = Array.isArray(val) ? val : [];
+        if (checked) {
+            return { ...prev, [id]: [...current, option] };
+        } else {
+            return { ...prev, [id]: current.filter(item => item !== option) };
+        }
+    });
   };
 
   const handleSocialChange = (field: 'platform' | 'handle', value: string) => {
@@ -258,6 +270,81 @@ export const ApplicationModal: React.FC<ApplicationModalProps> = ({ isOpen, onCl
                             placeholder={q.placeholder || 'username'}
                           />
                       </div>
+                    </div>
+                  )}
+
+                  {q.type === 'select' && (
+                    <div className="space-y-3">
+                        {q.allowMultiple ? (
+                            // Checkboxes (Multiple Choice)
+                            <div className="space-y-2">
+                                {q.options?.map((opt, idx) => {
+                                    const isChecked = (Array.isArray(answers[q.id]) ? answers[q.id] as string[] : []).includes(opt);
+                                    return (
+                                        <label 
+                                            key={idx} 
+                                            className={`flex items-center gap-3 cursor-pointer p-3 rounded-xl transition-all border-2 ${
+                                                isChecked 
+                                                    ? 'border-kmmr-blue bg-blue-50 dark:bg-blue-900/20 dark:border-blue-400' 
+                                                    : 'border-gray-100 bg-gray-50 hover:border-gray-300 dark:bg-gray-700 dark:border-gray-600 dark:hover:border-gray-500'
+                                            }`}
+                                        >
+                                            <div className={`w-6 h-6 rounded-md border-2 flex items-center justify-center transition-colors ${
+                                                isChecked 
+                                                    ? 'bg-kmmr-blue border-kmmr-blue dark:bg-blue-400 dark:border-blue-400' 
+                                                    : 'bg-white border-gray-300 dark:bg-gray-800 dark:border-gray-500'
+                                            }`}>
+                                                {isChecked && <Check size={14} className="text-white dark:text-gray-900 stroke-[3]" />}
+                                            </div>
+                                            <input 
+                                                type="checkbox"
+                                                className="hidden"
+                                                checked={isChecked}
+                                                onChange={(e) => handleCheckboxChange(q.id, opt, e.target.checked)}
+                                            />
+                                            <span className={`text-sm font-bold ${isChecked ? 'text-kmmr-blue dark:text-blue-300' : 'text-gray-700 dark:text-gray-300'}`}>
+                                                {opt}
+                                            </span>
+                                        </label>
+                                    );
+                                })}
+                            </div>
+                        ) : (
+                            // Radio Buttons (Single Choice)
+                            <div className="space-y-2">
+                                {q.options?.map((opt, idx) => {
+                                    const isSelected = answers[q.id] === opt;
+                                    return (
+                                        <label 
+                                            key={idx} 
+                                            className={`flex items-center gap-3 cursor-pointer p-3 rounded-xl transition-all border-2 ${
+                                                isSelected 
+                                                    ? 'border-kmmr-blue bg-blue-50 dark:bg-blue-900/20 dark:border-blue-400' 
+                                                    : 'border-gray-100 bg-gray-50 hover:border-gray-300 dark:bg-gray-700 dark:border-gray-600 dark:hover:border-gray-500'
+                                            }`}
+                                        >
+                                            <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${
+                                                isSelected 
+                                                    ? 'border-kmmr-blue dark:border-blue-400' 
+                                                    : 'border-gray-300 bg-white dark:bg-gray-800 dark:border-gray-500'
+                                            }`}>
+                                                {isSelected && <div className="w-3 h-3 rounded-full bg-kmmr-blue dark:bg-blue-400" />}
+                                            </div>
+                                            <input 
+                                                type="radio"
+                                                name={`q_${q.id}`}
+                                                className="hidden"
+                                                checked={isSelected}
+                                                onChange={() => handleAnswerChange(q.id, opt)}
+                                            />
+                                            <span className={`text-sm font-bold ${isSelected ? 'text-kmmr-blue dark:text-blue-300' : 'text-gray-700 dark:text-gray-300'}`}>
+                                                {opt}
+                                            </span>
+                                        </label>
+                                    );
+                                })}
+                            </div>
+                        )}
                     </div>
                   )}
                 </div>

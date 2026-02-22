@@ -69,11 +69,22 @@ export const ProjectsSection: React.FC<ProjectsSectionProps> = ({ limit, isHome 
 
   // Determine if project is active based on deadline
   const isActiveProject = (project: Project): boolean => {
-    if (!project.deadline) return false;
+    // If registration is explicitly disabled, it's not active for registration
+    if (project.hasRegistration === false) return false;
+
+    if (!project.deadline) return false; // If no deadline, assume completed/inactive
     const today = new Date();
     today.setHours(0, 0, 0, 0); // Reset time to start of day for fair comparison
     const deadline = new Date(project.deadline);
     return deadline >= today;
+  };
+
+  const isDeadlinePassed = (project: Project): boolean => {
+      if (!project.deadline) return true; // If no deadline, assume completed
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const deadline = new Date(project.deadline);
+      return deadline < today;
   };
 
   // Convert Project to Opportunity for the ApplicationModal
@@ -136,67 +147,71 @@ export const ProjectsSection: React.FC<ProjectsSectionProps> = ({ limit, isHome 
           <>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
               {displayedProjects.map((project) => {
-                const active = isActiveProject(project);
-                const title = getProjectTitle(project);
-                const desc = getProjectDesc(project);
+                  const active = isActiveProject(project);
+                  const deadlinePassed = isDeadlinePassed(project);
+                  const title = getProjectTitle(project);
+                  const desc = getProjectDesc(project);
 
-                return (
-                  <div 
-                    key={project.id} 
-                    onClick={() => setSelectedProject(project)}
-                    className="bg-white dark:bg-gray-800 rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300 flex flex-col h-full animate-fade-in-up cursor-pointer group transform hover:-translate-y-1 border border-gray-100 dark:border-gray-700"
-                  >
-                    <div className="h-48 overflow-hidden relative">
-                      <img 
-                        src={project.image} 
-                        alt={title} 
-                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                      />
-                      
-                      <div className="absolute inset-0 bg-kmmr-blue/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
-                        <span className="text-white font-bold border border-white/80 bg-white/20 backdrop-blur-sm px-4 py-2 rounded-full">
-                          {t('projects.details')}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="p-6 flex-grow flex flex-col">
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-2 text-sm text-kmmr-pink font-semibold">
-                            <Calendar size={14} />
-                            <span>{project.date}</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                           <span className="text-[10px] font-bold uppercase text-gray-500 bg-gray-100 px-2 py-0.5 rounded dark:bg-gray-700 dark:text-gray-300">
-                              {getOwnershipLabel(project)}
-                           </span>
-                           {active && (
-                             <span className="bg-green-100 text-green-700 text-[10px] font-bold px-2 py-0.5 rounded uppercase">Активно</span>
-                           )}
+                  return (
+                    <div 
+                      key={project.id} 
+                      onClick={() => setSelectedProject(project)}
+                      className="bg-white dark:bg-gray-800 rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300 flex flex-col h-full animate-fade-in-up cursor-pointer group transform hover:-translate-y-1 border border-gray-100 dark:border-gray-700"
+                    >
+                      <div className="h-48 overflow-hidden relative">
+                        <img 
+                          src={project.image} 
+                          alt={title} 
+                          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                        />
+                        
+                        <div className="absolute inset-0 bg-kmmr-blue/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
+                          <span className="text-white font-bold border border-white/80 bg-white/20 backdrop-blur-sm px-4 py-2 rounded-full">
+                            {t('projects.details')}
+                          </span>
                         </div>
                       </div>
-                      
-                      <h3 className="text-xl font-bold text-kmmr-blue dark:text-white mb-3 line-clamp-2">{title}</h3>
-                      <p className="text-gray-600 dark:text-gray-400 text-sm mb-6 flex-grow line-clamp-3">{desc}</p>
-                      
-                      <button 
-                        onClick={(e) => {
-                          if (active) {
-                            e.stopPropagation();
-                            handleRegisterClick(project);
-                          }
-                        }}
-                        className={`mt-auto w-full flex items-center justify-center gap-2 py-3 rounded-xl transition-all duration-300 font-bold ${
-                          active 
-                            ? 'bg-kmmr-pink text-white hover:bg-pink-600 shadow-md hover:shadow-lg' 
-                            : 'bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-300 group-hover:bg-kmmr-blue group-hover:text-white dark:group-hover:bg-blue-400 dark:group-hover:text-white'
-                        }`}
-                      >
-                        {active ? 'Реєстрація' : t('projects.details')}
-                        <ArrowRight size={16} />
-                      </button>
+                      <div className="p-6 flex-grow flex flex-col">
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-2 text-sm text-kmmr-pink font-semibold">
+                              <Calendar size={14} />
+                              <span>{project.date}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                             <span className="text-[10px] font-bold uppercase text-gray-500 bg-gray-100 px-2 py-0.5 rounded dark:bg-gray-700 dark:text-gray-300">
+                                {getOwnershipLabel(project)}
+                             </span>
+                             {active && (
+                               <span className="bg-green-100 text-green-700 text-[10px] font-bold px-2 py-0.5 rounded uppercase">Активно</span>
+                             )}
+                          </div>
+                        </div>
+                        
+                        <h3 className="text-xl font-bold text-kmmr-blue dark:text-white mb-3 line-clamp-2">{title}</h3>
+                        <p className="text-gray-600 dark:text-gray-400 text-sm mb-6 flex-grow line-clamp-3">{desc}</p>
+                        
+                        <button 
+                          onClick={(e) => {
+                            if (active) {
+                              e.stopPropagation();
+                              handleRegisterClick(project);
+                            } else {
+                                e.stopPropagation();
+                                setSelectedProject(project);
+                            }
+                          }}
+                          className={`mt-auto w-full flex items-center justify-center gap-2 py-3 rounded-xl transition-all duration-300 font-bold ${
+                            active 
+                              ? 'bg-kmmr-pink text-white hover:bg-pink-600 shadow-md hover:shadow-lg' 
+                              : 'bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-300 group-hover:bg-kmmr-blue group-hover:text-white dark:group-hover:bg-blue-400 dark:group-hover:text-white'
+                          }`}
+                        >
+                          {active ? 'Реєстрація' : t('projects.details')}
+                          <ArrowRight size={16} />
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                );
+                  );
               })}
             </div>
 
@@ -239,7 +254,7 @@ export const ProjectsSection: React.FC<ProjectsSectionProps> = ({ limit, isHome 
             <div className="p-8">
               <h3 className="text-3xl font-black text-kmmr-blue dark:text-white mb-2 leading-tight">{getProjectTitle(selectedProject)}</h3>
               
-              {selectedProject.deadline && (
+              {selectedProject.deadline && !isDeadlinePassed(selectedProject) && (
                 <div className="flex items-center gap-2 text-red-500 font-bold mb-4 text-sm bg-red-50 dark:bg-red-900/20 inline-block px-3 py-1 rounded-lg">
                   <Clock size={16} />
                   <span>Дедлайн реєстрації: {new Date(selectedProject.deadline).toLocaleDateString('uk-UA')}</span>
@@ -270,7 +285,7 @@ export const ProjectsSection: React.FC<ProjectsSectionProps> = ({ limit, isHome 
                    </a>
                  ) : (
                    <div className="w-full bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500 font-bold py-4 rounded-xl text-center">
-                     Подія завершена
+                     {isDeadlinePassed(selectedProject) ? 'Подія завершена' : 'Реєстрація закрита'}
                    </div>
                  )
               )}
