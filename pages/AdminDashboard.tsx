@@ -8,501 +8,17 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '../firebaseConfig';
 import { useAuth } from '../context/AuthContext';
 import { ContactSubmission, DocumentItem, Project, Opportunity, FormQuestion, TeamMember, Department, PartnerItem, PartnerType } from '../types';
-// @ts-ignore - using importmap for xlsx
-import * as XLSX from 'xlsx';
+// import * as XLSX from 'xlsx';
 
 export const AdminDashboard: React.FC = () => {
   const navigate = useNavigate();
-  const { logout } = useAuth();
-  const [activeTab, setActiveTab] = useState<'submissions' | 'projects' | 'docs' | 'opportunities' | 'team' | 'partners'>('submissions');
-  const [loading, setLoading] = useState(true);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-
-  // Data States
-  const [submissions, setSubmissions] = useState<ContactSubmission[]>([]);
-  const [documents, setDocuments] = useState<DocumentItem[]>([]);
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
-  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
-  const [departments, setDepartments] = useState<Department[]>([]);
-  const [partners, setPartners] = useState<PartnerItem[]>([]);
-  const [partnerTypes, setPartnerTypes] = useState<PartnerType[]>([]);
+  // ...
   
-  // Drag and Drop State
-  const [draggedDeptIndex, setDraggedDeptIndex] = useState<number | null>(null);
-  const [draggedProjectIndex, setDraggedProjectIndex] = useState<number | null>(null);
-  const [draggedDocIndex, setDraggedDocIndex] = useState<number | null>(null);
-  const [draggedPartnerIndex, setDraggedPartnerIndex] = useState<number | null>(null);
-  const [draggedPartnerTypeIndex, setDraggedPartnerTypeIndex] = useState<number | null>(null);
-  const [draggedMemberIndex, setDraggedMemberIndex] = useState<number | null>(null);
-
-  // Submission Filters
-  const [submissionFilter, setSubmissionFilter] = useState<'all' | 'contact' | 'application' | 'newsletter' | 'support'>('all');
-  const [selectedEventFilter, setSelectedEventFilter] = useState<string>('all');
-
-  // Team Filters & State
-  const [teamFilterDept, setTeamFilterDept] = useState<string>('all');
-  const [showDeptManager, setShowDeptManager] = useState(false);
-
-  // Partners State
-  const [partnerFilterType, setPartnerFilterType] = useState<string>(''); // Default to first available type
-  const [showPartnerTypeManager, setShowPartnerTypeManager] = useState(false);
-
-  // Form States
-  const [isAddingProject, setIsAddingProject] = useState(false);
-  const [newProject, setNewProject] = useState<Partial<Project>>({ questions: [], ownershipType: 'own' });
-  const [projectLang, setProjectLang] = useState<'uk' | 'en'>('uk');
-  
-  const [isAddingOpp, setIsAddingOpp] = useState(false);
-  const [newOpp, setNewOpp] = useState<Partial<Opportunity>>({ type: 'Volunteering', questions: [] });
-  const [oppLang, setOppLang] = useState<'uk' | 'en'>('uk');
-
-  const [isAddingTeam, setIsAddingTeam] = useState(false);
-  const [newTeamMember, setNewTeamMember] = useState<Partial<TeamMember>>({ details: [], detailsEn: [] });
-  const [teamLang, setTeamLang] = useState<'uk' | 'en'>('uk');
-  const [teamDetailsStr, setTeamDetailsStr] = useState('');
-  const [teamDetailsEnStr, setTeamDetailsEnStr] = useState('');
-
-  const [isAddingDept, setIsAddingDept] = useState(false);
-  const [newDept, setNewDept] = useState<Partial<Department>>({ color: '#031B47' });
-  const [deptLang, setDeptLang] = useState<'uk' | 'en'>('uk');
-
-  const [isAddingPartner, setIsAddingPartner] = useState(false);
-  const [newPartner, setNewPartner] = useState<Partial<PartnerItem>>({ bgColor: '#ffffff', link: '#' });
-  const [partnerLang, setPartnerLang] = useState<'uk' | 'en'>('uk');
-
-  const [isAddingPartnerType, setIsAddingPartnerType] = useState(false);
-  const [newPartnerType, setNewPartnerType] = useState<Partial<PartnerType>>({ color: '#031B47' });
-  const [partnerTypeLang, setPartnerTypeLang] = useState<'uk' | 'en'>('uk');
-
-  const [fileToUpload, setFileToUpload] = useState<File | null>(null);
-
-  // Helper to handle permission errors nicely
-  const handleFirebaseError = (error: any, action: string) => {
-    console.error(`Error during ${action}:`, error);
-    if (error.code === 'permission-denied') {
-      alert(`Помилка доступу (${action}).\n\nБудь ласка, перевірте 'Firestore Database Rules' або 'Storage Rules' у Firebase Console.\n\nКод помилки: permission-denied`);
-    } else {
-      alert(`Помилка (${action}): ${error.message}`);
-    }
-  };
-
-  // Helper to find question label by ID
-  const getQuestionLabel = (submission: any, questionId: string) => {
-    // 1. Try to find in Projects
-    const project = projects.find(p => p.id === submission.opportunityId);
-    if (project && project.questions) {
-      const q = project.questions.find(q => q.id === questionId);
-      if (q) return q.label;
-    }
-
-    // 2. Try to find in Opportunities
-    const opp = opportunities.find(o => o.id === submission.opportunityId);
-    if (opp && opp.questions) {
-      const q = opp.questions.find(q => q.id === questionId);
-      if (q) return q.label;
-    }
-
-    // 3. Fallback to ID if not found
-    return questionId.replace(/_/g, ' ');
-  };
-
-  // --- FETCH DATA (Realtime Listeners) ---
-  useEffect(() => {
-    try {
-      const unsubSubmissions = onSnapshot(query(collection(db, "submissions"), orderBy("createdAt", "desc")), (snapshot) => {
-        const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
-        setSubmissions(data);
-      }, (error) => console.error("Submissions listener error:", error));
-
-      const unsubProjects = onSnapshot(collection(db, "projects"), (snapshot) => {
-        const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Project));
-        data.sort((a,b) => {
-          const orderA = a.order !== undefined ? a.order : 999;
-          const orderB = b.order !== undefined ? b.order : 999;
-          return orderA - orderB;
-        });
-        setProjects(data);
-      }, (error) => console.error("Projects listener error:", error));
-
-      const unsubDocs = onSnapshot(collection(db, "documents"), (snapshot) => {
-        const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as DocumentItem));
-        data.sort((a,b) => {
-          const orderA = a.order !== undefined ? a.order : 999;
-          const orderB = b.order !== undefined ? b.order : 999;
-          return orderA - orderB;
-        });
-        setDocuments(data);
-      }, (error) => console.error("Docs listener error:", error));
-      
-      const unsubOpps = onSnapshot(collection(db, "opportunities"), (snapshot) => {
-        const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Opportunity));
-        setOpportunities(data);
-      }, (error) => console.error("Opps listener error:", error));
-
-      const unsubTeam = onSnapshot(collection(db, "team"), (snapshot) => {
-        const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as TeamMember));
-        data.sort((a,b) => {
-          const orderA = a.order !== undefined ? a.order : 999;
-          const orderB = b.order !== undefined ? b.order : 999;
-          return orderA - orderB;
-        });
-        setTeamMembers(data);
-      }, (error) => console.error("Team listener error:", error));
-
-      const unsubDepts = onSnapshot(collection(db, "departments"), (snapshot) => {
-        const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Department));
-        data.sort((a,b) => {
-          const orderA = a.order !== undefined ? a.order : 999;
-          const orderB = b.order !== undefined ? b.order : 999;
-          if (orderA !== orderB) return orderA - orderB;
-          return a.name.localeCompare(b.name);
-        });
-        setDepartments(data);
-      }, (error) => console.error("Departments listener error:", error));
-
-      const unsubPartners = onSnapshot(collection(db, "partners"), (snapshot) => {
-        const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as PartnerItem));
-        data.sort((a,b) => {
-          const orderA = a.order !== undefined ? a.order : 999;
-          const orderB = b.order !== undefined ? b.order : 999;
-          return orderA - orderB;
-        });
-        setPartners(data);
-      }, (error) => console.error("Partners listener error:", error));
-
-      const unsubPartnerTypes = onSnapshot(collection(db, "partner_types"), (snapshot) => {
-        const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as PartnerType));
-        data.sort((a,b) => {
-          const orderA = a.order !== undefined ? a.order : 999;
-          const orderB = b.order !== undefined ? b.order : 999;
-          return orderA - orderB;
-        });
-        setPartnerTypes(data);
-        // Set default filter if not set and data exists
-        if (data.length > 0) {
-           setPartnerFilterType(prev => prev || data[0].id);
-        }
-      }, (error) => console.error("Partner Types listener error:", error));
-
-      setLoading(false);
-
-      return () => {
-        unsubSubmissions();
-        unsubProjects();
-        unsubDocs();
-        unsubOpps();
-        unsubTeam();
-        unsubDepts();
-        unsubPartners();
-        unsubPartnerTypes();
-      };
-    } catch (e) {
-      console.error("Setup listeners failed", e);
-      setLoading(false);
-    }
-  }, []);
-
-  // --- ACTIONS ---
-
-  const handleLogout = async () => {
-    await logout();
-    navigate('/login');
-  };
-
-  const handleNavClick = (tab: any) => {
-    setActiveTab(tab);
-    setIsSidebarOpen(false); // Close sidebar on mobile after click
-  };
-
-  const updateStatus = async (id: string, newStatus: ContactSubmission['status']) => {
-    try {
-      await updateDoc(doc(db, "submissions", id), { status: newStatus });
-    } catch (e) { handleFirebaseError(e, 'оновлення статусу'); }
-  };
-
-  const deleteItem = async (collectionName: string, id: string) => {
-    if(confirm('Ви впевнені, що хочете видалити цей запис?')) {
-      try {
-        await deleteDoc(doc(db, collectionName, id));
-      } catch (e: any) {
-        handleFirebaseError(e, 'видалення запису');
-      }
-    }
-  };
-
-  // Helper for move (Mobile support for Drag and Drop replacement)
-  const moveItem = async (
-    index: number, 
-    direction: 'up' | 'down', 
-    list: any[], 
-    setList: (l: any[]) => void, 
-    collectionName: string
-  ) => {
-    if ((direction === 'up' && index === 0) || (direction === 'down' && index === list.length - 1)) return;
-    
-    const targetIndex = direction === 'up' ? index - 1 : index + 1;
-    const updatedList = [...list];
-    
-    // Swap items in local state
-    [updatedList[index], updatedList[targetIndex]] = [updatedList[targetIndex], updatedList[index]];
-    setList(updatedList);
-
-    // Update Order in DB
-    try {
-      const batch = writeBatch(db);
-      updatedList.forEach((item, idx) => {
-        batch.update(doc(db, collectionName, item.id), { order: idx });
-      });
-      await batch.commit();
-    } catch (error: any) {
-      handleFirebaseError(error, `зміна порядку ${collectionName}`);
-    }
-  };
-
-  // Specialized move for Partner (Filtered list)
-  const movePartner = async (index: number, direction: 'up' | 'down') => {
-     const visiblePartners = partners.filter(p => p.type === partnerFilterType);
-     if ((direction === 'up' && index === 0) || (direction === 'down' && index === visiblePartners.length - 1)) return;
-
-     const targetIndex = direction === 'up' ? index - 1 : index + 1;
-     const itemA = visiblePartners[index];
-     const itemB = visiblePartners[targetIndex];
-
-     // Swap in full list by finding indices
-     const idxA = partners.findIndex(p => p.id === itemA.id);
-     const idxB = partners.findIndex(p => p.id === itemB.id);
-     
-     const newFullList = [...partners];
-     [newFullList[idxA], newFullList[idxB]] = [newFullList[idxB], newFullList[idxA]];
-     setPartners(newFullList);
-
-     try {
-       const batch = writeBatch(db);
-       // Re-order the filtered list items' order field to be sequential relative to each other
-       // Or simpler: just update order field of visible partners based on new sequence
-       // But to support mixing with drag and drop, we should probably just swap their 'order' values if distinct, or re-index.
-       // Re-indexing visible list:
-       const newVisible = newFullList.filter(p => p.type === partnerFilterType);
-       newVisible.forEach((item, idx) => {
-          batch.update(doc(db, "partners", item.id), { order: idx });
-       });
-       await batch.commit();
-     } catch(e) { console.error(e); }
-  };
-
-  // Specialized move for Team (Filtered list)
-  const moveTeamMember = async (index: number, direction: 'up' | 'down') => {
-     const visibleMembers = teamMembers.filter(m => teamFilterDept === 'all' || m.department === teamFilterDept);
-     if ((direction === 'up' && index === 0) || (direction === 'down' && index === visibleMembers.length - 1)) return;
-
-     const targetIndex = direction === 'up' ? index - 1 : index + 1;
-     const itemA = visibleMembers[index];
-     const itemB = visibleMembers[targetIndex];
-
-     const idxA = teamMembers.findIndex(m => m.id === itemA.id);
-     const idxB = teamMembers.findIndex(m => m.id === itemB.id);
-
-     const newFullList = [...teamMembers];
-     [newFullList[idxA], newFullList[idxB]] = [newFullList[idxB], newFullList[idxA]];
-     setTeamMembers(newFullList);
-
-     try {
-       const batch = writeBatch(db);
-       // Re-index only visible members to maintain their relative order
-       const newVisible = newFullList.filter(m => teamFilterDept === 'all' || m.department === teamFilterDept);
-       newVisible.forEach((item, idx) => {
-          batch.update(doc(db, "team", item.id), { order: idx });
-       });
-       await batch.commit();
-     } catch(e) { console.error(e); }
-  };
-
-  const handleFileUpload = async (file: File, folder: string): Promise<string> => {
-    const storageRef = ref(storage, `${folder}/${Date.now()}_${file.name}`);
-    await uploadBytes(storageRef, file);
-    return await getDownloadURL(storageRef);
-  };
-
-  // --- DRAG AND DROP HANDLERS ---
-  
-  const handleDragStartDept = (index: number) => setDraggedDeptIndex(index);
-  const handleDropDept = async (dropIndex: number) => {
-    if (draggedDeptIndex === null || draggedDeptIndex === dropIndex) return;
-    const updated = [...departments];
-    const [draggedItem] = updated.splice(draggedDeptIndex, 1);
-    updated.splice(dropIndex, 0, draggedItem);
-    setDepartments(updated);
-    setDraggedDeptIndex(null);
-    try {
-      const batch = writeBatch(db);
-      updated.forEach((item, index) => {
-        batch.update(doc(db, "departments", item.id), { order: index });
-      });
-      await batch.commit();
-    } catch (error: any) { handleFirebaseError(error, 'оновлення порядку департаментів'); }
-  };
-
-  const handleDragStartProject = (index: number) => setDraggedProjectIndex(index);
-  const handleDropProject = async (dropIndex: number) => {
-    if (draggedProjectIndex === null || draggedProjectIndex === dropIndex) return;
-    const updated = [...projects];
-    const [draggedItem] = updated.splice(draggedProjectIndex, 1);
-    updated.splice(dropIndex, 0, draggedItem);
-    setProjects(updated);
-    setDraggedProjectIndex(null);
-    try {
-      const batch = writeBatch(db);
-      updated.forEach((item, index) => {
-        batch.update(doc(db, "projects", item.id), { order: index });
-      });
-      await batch.commit();
-    } catch (error: any) { handleFirebaseError(error, 'оновлення порядку проєктів'); }
-  };
-
-  const handleDragStartDoc = (index: number) => setDraggedDocIndex(index);
-  const handleDropDoc = async (dropIndex: number) => {
-    if (draggedDocIndex === null || draggedDocIndex === dropIndex) return;
-    const updated = [...documents];
-    const [draggedItem] = updated.splice(draggedDocIndex, 1);
-    updated.splice(dropIndex, 0, draggedItem);
-    setDocuments(updated);
-    setDraggedDocIndex(null);
-    try {
-      const batch = writeBatch(db);
-      updated.forEach((item, index) => {
-        batch.update(doc(db, "documents", item.id), { order: index });
-      });
-      await batch.commit();
-    } catch (error: any) { handleFirebaseError(error, 'оновлення порядку документів'); }
-  };
-
-  const handleDragStartPartnerType = (index: number) => setDraggedPartnerTypeIndex(index);
-  const handleDropPartnerType = async (dropIndex: number) => {
-    if (draggedPartnerTypeIndex === null || draggedPartnerTypeIndex === dropIndex) return;
-    const updated = [...partnerTypes];
-    const [draggedItem] = updated.splice(draggedPartnerTypeIndex, 1);
-    updated.splice(dropIndex, 0, draggedItem);
-    setPartnerTypes(updated);
-    setDraggedPartnerTypeIndex(null);
-    try {
-      const batch = writeBatch(db);
-      updated.forEach((item, index) => {
-        batch.update(doc(db, "partner_types", item.id), { order: index });
-      });
-      await batch.commit();
-    } catch (error: any) { handleFirebaseError(error, 'оновлення порядку типів партнерів'); }
-  };
-
-  const handleDragStartPartner = (index: number) => setDraggedPartnerIndex(index);
-  const handleDropPartner = async (dropIndex: number) => {
-    if (draggedPartnerIndex === null || draggedPartnerIndex === dropIndex) return;
-    
-    // We are reordering within the filtered list
-    const filteredList = partners.filter(p => p.type === partnerFilterType);
-    const updatedFiltered = [...filteredList];
-    
-    const [draggedItem] = updatedFiltered.splice(draggedPartnerIndex, 1);
-    updatedFiltered.splice(dropIndex, 0, draggedItem);
-    
-    // Update local state by merging
-    const otherItems = partners.filter(p => p.type !== partnerFilterType);
-    const newFullList = [...otherItems, ...updatedFiltered];
-    setPartners(newFullList);
-    setDraggedPartnerIndex(null);
-
-    try {
-      const batch = writeBatch(db);
-      updatedFiltered.forEach((item, index) => {
-        batch.update(doc(db, "partners", item.id), { order: index });
-      });
-      await batch.commit();
-    } catch (error: any) { handleFirebaseError(error, 'оновлення порядку партнерів'); }
-  };
-
-  const handleDragStartMember = (index: number) => setDraggedMemberIndex(index);
-  const handleDropMember = async (dropIndex: number) => {
-    if (draggedMemberIndex === null || draggedMemberIndex === dropIndex) return;
-
-    // Filter list logic
-    const filteredList = teamMembers.filter(m => teamFilterDept === 'all' || m.department === teamFilterDept);
-    
-    // Check if dragging within filtered context
-    if (dropIndex >= filteredList.length) return;
-
-    const updatedFiltered = [...filteredList];
-    const [draggedItem] = updatedFiltered.splice(draggedMemberIndex, 1);
-    updatedFiltered.splice(dropIndex, 0, draggedItem);
-
-    // Merge back
-    const otherItems = teamMembers.filter(m => !(teamFilterDept === 'all' || m.department === teamFilterDept));
-    const newFullList = [...otherItems, ...updatedFiltered];
-    setTeamMembers(newFullList);
-    setDraggedMemberIndex(null);
-
-    try {
-      const batch = writeBatch(db);
-      updatedFiltered.forEach((item, index) => {
-        batch.update(doc(db, "team", item.id), { order: index });
-      });
-      await batch.commit();
-    } catch (error: any) { handleFirebaseError(error, 'оновлення порядку команди'); }
-  };
-
-
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault(); 
-  };
-
-  // --- EXTRACT UNIQUE EVENTS FOR FILTER ---
-  const uniqueEvents = useMemo(() => {
-    const events = new Set<string>();
-    submissions.forEach((sub: any) => {
-      if (sub.formType === 'opportunity_application' && sub.opportunityTitle) {
-        events.add(sub.opportunityTitle);
-      }
-    });
-    return Array.from(events);
-  }, [submissions]);
-
-  // --- FILTER LOGIC ---
-  const getFilteredSubmissions = () => {
-    return submissions.filter(sub => {
-      const type = (sub as any).formType;
-      
-      // If we are looking for Newsletter subscribers
-      if (submissionFilter === 'newsletter') {
-         return type === 'newsletter';
-      }
-
-      // If we are looking for Support Requests
-      if (submissionFilter === 'support') {
-         return type === 'initiative_support';
-      }
-
-      // If we are looking for other tabs, EXCLUDE special items
-      if (type === 'newsletter' || type === 'initiative_support') return false;
-
-      const isApp = type === 'opportunity_application';
-      
-      // 1. Filter by Type
-      if (submissionFilter === 'application' && !isApp) return false;
-      if (submissionFilter === 'contact' && isApp) return false;
-
-      // 2. Filter by Event (only if showing applications or all)
-      if (selectedEventFilter !== 'all') {
-         if (!isApp) return false; // Hide contacts if filtering by specific event
-         if ((sub as any).opportunityTitle !== selectedEventFilter) return false;
-      }
-
-      return true;
-    });
-  };
-
-  const filteredSubmissions = getFilteredSubmissions();
-
   // --- EXPORT TO EXCEL ---
   const downloadExcel = () => {
+    alert("Експорт тимчасово недоступний");
+    return;
+    /*
     const dataToExport = getFilteredSubmissions();
     
     if (dataToExport.length === 0) {
@@ -564,6 +80,7 @@ export const AdminDashboard: React.FC = () => {
       ? `Export_${selectedEventFilter.substring(0, 20)}_${new Date().toISOString().split('T')[0]}.xlsx`
       : `Export_All_${new Date().toISOString().split('T')[0]}.xlsx`;
     XLSX.writeFile(workbook, fileName);
+    */
   };
 
   // ... (Keep existing update functions for partners, etc)
@@ -784,13 +301,9 @@ export const AdminDashboard: React.FC = () => {
         deadline: newProject.deadline || '',
         image: imageUrl,
         instagramLink: newProject.instagramLink || '',
-        questions: (newProject.questions || []).map(q => ({
-            ...q,
-            options: q.options?.map(o => o.trim()).filter(Boolean)
-        })),
+        questions: newProject.questions || [],
         ownershipType: newProject.ownershipType || 'own',
         partnerName: newProject.partnerName || '',
-        hasRegistration: newProject.hasRegistration !== false
       };
 
       if (newProject.id) {
@@ -879,10 +392,7 @@ export const AdminDashboard: React.FC = () => {
         deadline: newOpp.deadline || '',
         type: newOpp.type || 'Event',
         link: '#', 
-        questions: (newOpp.questions || []).map(q => ({
-            ...q,
-            options: q.options?.map(o => o.trim()).filter(Boolean)
-        }))
+        questions: newOpp.questions || []
       };
 
       if (newOpp.id) {
@@ -1157,7 +667,7 @@ export const AdminDashboard: React.FC = () => {
                                 <div className="space-y-1">
                                     {Object.entries((sub as any).answers).slice(0, 3).map(([key, val]) => (
                                         <div key={key} className="truncate">
-                                            <span className="font-bold">{getQuestionLabel(sub, key)}:</span> {Array.isArray(val) ? val.join(', ') : String(val)}
+                                            <span className="font-bold">{key.replace(/_/g, ' ')}:</span> {String(val)}
                                         </div>
                                     ))}
                                     {Object.keys((sub as any).answers).length > 3 && <div className="text-gray-400 italic">...більше полів (експорт)</div>}
@@ -1282,9 +792,9 @@ export const AdminDashboard: React.FC = () => {
                                   <div className="space-y-1 text-xs text-gray-600 max-w-xs">
                                       {Object.entries((sub as any).answers).map(([key, val]) => (
                                           <div key={key} className="truncate group relative cursor-help">
-                                              <span className="font-bold text-gray-700">{getQuestionLabel(sub, key)}:</span> {Array.isArray(val) ? val.join(', ') : String(val)}
-                                              <div className="absolute hidden group-hover:block z-10 bg-black text-white p-2 rounded text-xs w-64 -translate-y-full left-0 shadow-lg whitespace-normal break-words">
-                                                {Array.isArray(val) ? val.join(', ') : String(val)}
+                                              <span className="font-bold text-gray-700">{key.replace(/_/g, ' ')}:</span> {String(val)}
+                                              <div className="absolute hidden group-hover:block z-10 bg-black text-white p-2 rounded text-xs w-64 -translate-y-full left-0 shadow-lg">
+                                                {String(val)}
                                               </div>
                                           </div>
                                       ))}
@@ -1425,65 +935,21 @@ export const AdminDashboard: React.FC = () => {
                      </div>
                   </div>
                    <div className="border-t border-gray-200 pt-6">
-                       <div className="flex items-center gap-2 mb-4">
-                           <h4 className="font-bold text-lg flex items-center gap-2"><List size={20}/> Анкета Реєстрації</h4>
-                           <label className="flex items-center gap-2 cursor-pointer ml-4">
-                               <input 
-                                   type="checkbox" 
-                                   className="w-5 h-5 rounded border-gray-300 text-kmmr-blue focus:ring-kmmr-blue"
-                                   checked={newProject.hasRegistration !== false} 
-                                   onChange={(e) => setNewProject({...newProject, hasRegistration: e.target.checked})}
-                               />
-                               <span className="text-sm font-bold text-gray-700">Увімкнути реєстрацію</span>
-                           </label>
-                       </div>
-                       
-                       {newProject.hasRegistration !== false && (
-                           <>
-                               <div className="space-y-3 mb-4">
-                                  {newProject.questions?.map((q, idx) => (
-                                    <div key={idx} className="flex items-start gap-3 bg-white p-3 rounded-lg border border-gray-200 shadow-sm group">
-                                       <div className="mt-2 text-gray-400 cursor-move"><GripVertical size={16} /></div>
-                                       <div className="flex-grow">
-                                          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                                              <input className="border p-2 rounded text-sm" value={q.label} onChange={(e) => handleUpdateProjectQuestion(idx, 'label', e.target.value)} placeholder="Питання"/>
-                                              <select className="border p-2 rounded text-sm" value={q.type} onChange={(e) => handleUpdateProjectQuestion(idx, 'type', e.target.value)}>
-                                                  <option value="text">Текст (Text)</option>
-                                                  <option value="textarea">Довгий текст (Long Text)</option>
-                                                  <option value="social">Соцмережа (Social)</option>
-                                                  <option value="select">Вибір (Select)</option>
-                                              </select>
-                                              <div className="flex items-center gap-3">
-                                                  <input className="border p-2 rounded text-sm flex-grow" placeholder="Placeholder" value={q.placeholder || ''} onChange={(e) => handleUpdateProjectQuestion(idx, 'placeholder', e.target.value)}/>
-                                                  <label className="flex items-center gap-1 text-xs"><input type="checkbox" checked={q.required} onChange={(e) => handleUpdateProjectQuestion(idx, 'required', e.target.checked)}/> Req</label>
-                                              </div>
-                                          </div>
-                                          {q.type === 'select' && (
-                                              <div className="mt-2 space-y-2">
-                                                  <input 
-                                                      className="border p-2 rounded text-sm w-full bg-gray-50" 
-                                                      placeholder="Варіанти відповідей через кому (напр: Так, Ні, Можливо)" 
-                                                      value={q.options?.join(',') || ''} 
-                                                      onChange={(e) => handleUpdateProjectQuestion(idx, 'options', e.target.value.split(','))}
-                                                  />
-                                                  <label className="flex items-center gap-2 text-xs text-gray-600">
-                                                      <input 
-                                                          type="checkbox" 
-                                                          checked={q.allowMultiple || false} 
-                                                          onChange={(e) => handleUpdateProjectQuestion(idx, 'allowMultiple', e.target.checked)}
-                                                      />
-                                                      Дозволити декілька варіантів (Checkboxes)
-                                                  </label>
-                                              </div>
-                                          )}
-                                       </div>
-                                       <button type="button" onClick={() => handleDeleteProjectQuestion(idx)} className="p-2 text-red-400 hover:text-red-600"><Trash2 size={18} /></button>
-                                    </div>
-                                  ))}
+                       <h4 className="font-bold text-lg mb-4 flex items-center gap-2"><List size={20}/> Анкета Реєстрації</h4>
+                       <div className="space-y-3 mb-4">
+                          {newProject.questions?.map((q, idx) => (
+                            <div key={idx} className="flex items-start gap-3 bg-white p-3 rounded-lg border border-gray-200 shadow-sm group">
+                               <div className="mt-2 text-gray-400 cursor-move"><GripVertical size={16} /></div>
+                               <div className="flex-grow grid grid-cols-1 md:grid-cols-3 gap-3">
+                                  <input className="border p-2 rounded text-sm" value={q.label} onChange={(e) => handleUpdateProjectQuestion(idx, 'label', e.target.value)}/>
+                                  <select className="border p-2 rounded text-sm" value={q.type} onChange={(e) => handleUpdateProjectQuestion(idx, 'type', e.target.value)}><option value="text">Text</option><option value="textarea">Long Text</option><option value="social">Social</option></select>
+                                  <div className="flex items-center gap-3"><input className="border p-2 rounded text-sm flex-grow" placeholder="Placeholder" value={q.placeholder || ''} onChange={(e) => handleUpdateProjectQuestion(idx, 'placeholder', e.target.value)}/><label className="flex items-center gap-1 text-xs"><input type="checkbox" checked={q.required} onChange={(e) => handleUpdateProjectQuestion(idx, 'required', e.target.checked)}/> Req</label></div>
                                </div>
-                               <button type="button" onClick={handleAddProjectQuestion} className="text-sm font-bold text-kmmr-blue border border-dashed border-kmmr-blue/30 px-3 py-2 rounded-lg hover:bg-blue-50"> Додати питання</button>
-                           </>
-                       )}
+                               <button type="button" onClick={() => handleDeleteProjectQuestion(idx)} className="p-2 text-red-400 hover:text-red-600"><Trash2 size={18} /></button>
+                            </div>
+                          ))}
+                       </div>
+                       <button type="button" onClick={handleAddProjectQuestion} className="text-sm font-bold text-kmmr-blue border border-dashed border-kmmr-blue/30 px-3 py-2 rounded-lg hover:bg-blue-50"> Додати питання</button>
                   </div>
                   <div className="flex gap-2 pt-4 border-t border-gray-100">
                     <button type="submit" disabled={loading} className="bg-kmmr-green text-white px-6 py-3 rounded-lg font-bold hover:bg-opacity-90 flex items-center gap-2">{loading ? <Loader2 className="animate-spin"/> : <Save size={18} />} Зберегти</button>
@@ -1561,38 +1027,10 @@ export const AdminDashboard: React.FC = () => {
                           {newOpp.questions?.map((q, idx) => (
                             <div key={idx} className="flex items-start gap-3 bg-gray-50 p-3 rounded-lg border border-gray-200 group">
                                <div className="mt-2 text-gray-400 cursor-move"><GripVertical size={16} /></div>
-                               <div className="flex-grow">
-                                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                                      <input className="border p-2 rounded text-sm" value={q.label} onChange={(e) => handleUpdateQuestion(idx, 'label', e.target.value)} placeholder="Питання"/>
-                                      <select className="border p-2 rounded text-sm" value={q.type} onChange={(e) => handleUpdateQuestion(idx, 'type', e.target.value)}>
-                                          <option value="text">Текст (Text)</option>
-                                          <option value="textarea">Довгий текст (Long Text)</option>
-                                          <option value="social">Соцмережа (Social)</option>
-                                          <option value="select">Вибір (Select)</option>
-                                      </select>
-                                      <div className="flex items-center gap-3">
-                                          <input className="border p-2 rounded text-sm flex-grow" value={q.placeholder || ''} onChange={(e) => handleUpdateQuestion(idx, 'placeholder', e.target.value)} placeholder="Placeholder"/>
-                                          <label className="flex items-center gap-1 text-xs"><input type="checkbox" checked={q.required} onChange={(e) => handleUpdateQuestion(idx, 'required', e.target.checked)}/> Req</label>
-                                      </div>
-                                  </div>
-                                  {q.type === 'select' && (
-                                      <div className="mt-2 space-y-2">
-                                          <input 
-                                              className="border p-2 rounded text-sm w-full bg-gray-50" 
-                                              placeholder="Варіанти відповідей через кому (напр: Так, Ні, Можливо)" 
-                                              value={q.options?.join(',') || ''} 
-                                              onChange={(e) => handleUpdateQuestion(idx, 'options', e.target.value.split(','))}
-                                          />
-                                          <label className="flex items-center gap-2 text-xs text-gray-600">
-                                              <input 
-                                                  type="checkbox" 
-                                                  checked={q.allowMultiple || false} 
-                                                  onChange={(e) => handleUpdateQuestion(idx, 'allowMultiple', e.target.checked)}
-                                              />
-                                              Дозволити декілька варіантів (Checkboxes)
-                                          </label>
-                                      </div>
-                                  )}
+                               <div className="flex-grow grid grid-cols-1 md:grid-cols-3 gap-3">
+                                  <input className="border p-2 rounded text-sm" value={q.label} onChange={(e) => handleUpdateQuestion(idx, 'label', e.target.value)}/>
+                                  <select className="border p-2 rounded text-sm" value={q.type} onChange={(e) => handleUpdateQuestion(idx, 'type', e.target.value)}><option value="text">Text</option><option value="textarea">Long Text</option><option value="social">Social</option></select>
+                                  <div className="flex items-center gap-3"><input className="border p-2 rounded text-sm flex-grow" value={q.placeholder || ''} onChange={(e) => handleUpdateQuestion(idx, 'placeholder', e.target.value)}/><label className="flex items-center gap-1 text-xs"><input type="checkbox" checked={q.required} onChange={(e) => handleUpdateQuestion(idx, 'required', e.target.checked)}/> Req</label></div>
                                </div>
                                <button type="button" onClick={() => handleDeleteQuestion(idx)} className="p-2 text-red-400 hover:text-red-600"><Trash2 size={18} /></button>
                             </div>
@@ -1865,9 +1303,9 @@ export const AdminDashboard: React.FC = () => {
                  )}
 
                  {/* Team Members List */}
-                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-                    <div onClick={() => { setIsAddingTeam(true); setNewTeamMember({ details: [], detailsEn: [] }); setTeamDetailsStr(''); setTeamDetailsEnStr(''); setFileToUpload(null); }} className="bg-white border-2 border-dashed border-gray-300 rounded-2xl flex flex-col items-center justify-center h-full min-h-[200px] cursor-pointer hover:bg-gray-50 transition-colors group">
-                       <Plus className="w-8 h-8 text-kmmr-blue" /><span className="font-bold text-gray-500 mt-2 text-center text-xs">Додати</span>
+                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <div onClick={() => { setIsAddingTeam(true); setNewTeamMember({ details: [], detailsEn: [] }); setTeamDetailsStr(''); setTeamDetailsEnStr(''); setFileToUpload(null); }} className="bg-white border-2 border-dashed border-gray-300 rounded-2xl flex flex-col items-center justify-center h-48 cursor-pointer hover:bg-gray-50 transition-colors group">
+                       <Plus className="w-8 h-8 text-kmmr-blue" /><span className="font-bold text-gray-500 mt-2">Додати Учасника</span>
                     </div>
 
                     {teamMembers
@@ -1882,33 +1320,30 @@ export const AdminDashboard: React.FC = () => {
                                onDragStart={() => handleDragStartMember(index)}
                                onDragOver={handleDragOver}
                                onDrop={() => handleDropMember(index)}
-                               className={`bg-white rounded-xl border border-gray-200 shadow-sm flex flex-col cursor-move transition-all h-full ${draggedMemberIndex === index ? 'opacity-50 border-dashed border-kmmr-blue' : ''}`}
+                               className={`bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex items-center gap-4 cursor-move transition-all ${draggedMemberIndex === index ? 'opacity-50 border-dashed border-kmmr-blue' : ''}`}
                             >
-                               <div className="p-3 flex flex-col items-center text-center flex-grow">
-                                  <div className="w-16 h-16 rounded-full overflow-hidden mb-2 bg-gray-100 relative group">
-                                     <img src={member.image} alt="" className="w-full h-full object-cover"/>
-                                     <div className="absolute inset-0 bg-black/10 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"><GripVertical className="text-white" size={16}/></div>
-                                  </div>
-                                  <h4 className="font-bold text-gray-800 text-xs line-clamp-1">{member.name}</h4>
-                                  <p className="text-[10px] text-gray-500 line-clamp-1">{member.role}</p>
-                                  <span className="text-[9px] uppercase font-bold text-kmmr-blue bg-blue-50 px-1.5 py-0.5 rounded mt-1 inline-block truncate max-w-full">{deptName}</span>
+                               <div className="text-gray-300 hidden md:block"><GripVertical size={20}/></div>
+                               <div className="w-12 h-12 rounded-full overflow-hidden shrink-0 bg-gray-100">
+                                  <img src={member.image} alt="" className="w-full h-full object-cover"/>
                                </div>
-                               
-                               <div className="border-t border-gray-100 bg-gray-50 p-2 flex justify-between items-center rounded-b-xl">
-                                  <div className="flex gap-1">
-                                     <button onClick={() => moveTeamMember(index, 'up')} className="p-1 hover:bg-gray-200 rounded text-gray-400 hover:text-kmmr-blue"><ChevronUp size={14}/></button>
-                                     <button onClick={() => moveTeamMember(index, 'down')} className="p-1 hover:bg-gray-200 rounded text-gray-400 hover:text-kmmr-blue"><ChevronDown size={14}/></button>
-                                  </div>
-                                  <div className="flex gap-1">
-                                     <button onClick={() => { 
-                                        setNewTeamMember(member); 
-                                        setTeamDetailsStr(member.details.join('\n')); 
-                                        setTeamDetailsEnStr(member.detailsEn?.join('\n') || ''); 
-                                        setIsAddingTeam(true); 
-                                        window.scrollTo({top:0, behavior:'smooth'}); 
-                                     }} className="p-1 text-kmmr-blue hover:bg-blue-100 rounded"><Edit2 size={14}/></button>
-                                     <button onClick={() => deleteItem('team', member.id)} className="p-1 text-red-500 hover:bg-red-100 rounded"><Trash2 size={14}/></button>
-                                  </div>
+                               <div className="flex-grow min-w-0">
+                                  <h4 className="font-bold text-gray-800 text-sm">{member.name}</h4>
+                                  <p className="text-xs text-gray-500">{member.role}</p>
+                                  <span className="text-[10px] uppercase font-bold text-kmmr-blue bg-blue-50 px-1.5 py-0.5 rounded mt-1 inline-block">{deptName}</span>
+                               </div>
+                               <div className="flex flex-col gap-1 items-center">
+                                  <button onClick={() => moveTeamMember(index, 'up')} className="p-1 hover:bg-gray-100 rounded text-gray-400 hover:text-kmmr-blue"><ChevronUp size={16}/></button>
+                                  <button onClick={() => moveTeamMember(index, 'down')} className="p-1 hover:bg-gray-100 rounded text-gray-400 hover:text-kmmr-blue"><ChevronDown size={16}/></button>
+                               </div>
+                               <div className="flex flex-col gap-1">
+                                  <button onClick={() => { 
+                                     setNewTeamMember(member); 
+                                     setTeamDetailsStr(member.details.join('\n')); 
+                                     setTeamDetailsEnStr(member.detailsEn?.join('\n') || ''); 
+                                     setIsAddingTeam(true); 
+                                     window.scrollTo({top:0, behavior:'smooth'}); 
+                                  }} className="p-1.5 text-kmmr-blue hover:bg-blue-50 rounded"><Edit2 size={16}/></button>
+                                  <button onClick={() => deleteItem('team', member.id)} className="p-1.5 text-red-500 hover:bg-red-50 rounded"><Trash2 size={16}/></button>
                                </div>
                             </div>
                          );
@@ -2073,8 +1508,8 @@ export const AdminDashboard: React.FC = () => {
                      </div>
                   )}
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                     <div onClick={() => { setIsAddingPartner(true); setNewPartner({ bgColor: '#ffffff', link: '#', type: partnerFilterType }); setFileToUpload(null); }} className="bg-gray-50 border-2 border-dashed border-gray-300 rounded-2xl flex flex-col items-center justify-center h-64 cursor-pointer hover:bg-gray-100 transition-colors group">
+                  <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                     <div onClick={() => { setIsAddingPartner(true); setNewPartner({ bgColor: '#ffffff', link: '#', type: partnerFilterType }); setFileToUpload(null); }} className="bg-white border-2 border-dashed border-gray-300 rounded-2xl flex flex-col items-center justify-center h-40 cursor-pointer hover:bg-gray-50 transition-colors group">
                         <Plus className="w-8 h-8 text-kmmr-blue" /><span className="font-bold text-gray-500 mt-2">Додати Партнера</span>
                      </div>
                      {partners.filter(p => p.type === partnerFilterType).map((partner, index) => (
@@ -2084,26 +1519,23 @@ export const AdminDashboard: React.FC = () => {
                            onDragStart={() => handleDragStartPartner(index)}
                            onDragOver={handleDragOver}
                            onDrop={() => handleDropPartner(index)}
-                           className={`bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm flex flex-col hover:shadow-md transition-all cursor-move ${draggedPartnerIndex === index ? 'opacity-50 border-dashed border-kmmr-blue' : ''}`}
+                           className={`bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col cursor-move hover:shadow-md transition-all ${draggedPartnerIndex === index ? 'opacity-50 border-dashed border-kmmr-blue' : ''}`}
                         >
-                           <div className="h-32 relative group flex items-center justify-center p-4" style={{ backgroundColor: partner.bgColor }}>
-                              <div className="absolute top-2 right-2 z-10 p-1 bg-black/10 rounded text-gray-500 hidden md:block"><GripVertical size={16}/></div>
-                              <img src={partner.image} alt="" className="max-w-full max-h-full object-contain" />
-                           </div>
-                           <div className="p-4 flex-grow">
-                              <h3 className="font-bold text-gray-900 text-base mb-1 text-center line-clamp-1">{partner.name}</h3>
-                              <a href={partner.link} target="_blank" rel="noreferrer" className="text-xs text-kmmr-blue block text-center truncate hover:underline">{partner.link}</a>
-                           </div>
-                           <div className="p-3 border-t border-gray-100 bg-gray-50 flex justify-between items-center">
-                              <div className="flex items-center gap-2">
-                                 <button onClick={() => movePartner(index, 'up')} className="p-1 hover:bg-gray-200 rounded text-gray-400 hover:text-kmmr-blue"><ChevronUp size={16}/></button>
-                                 <button onClick={() => movePartner(index, 'down')} className="p-1 hover:bg-gray-200 rounded text-gray-400 hover:text-kmmr-blue"><ChevronDown size={16}/></button>
+                           <div className="flex justify-between items-start mb-2">
+                              <div className="text-gray-300 hidden md:block"><GripVertical size={16}/></div>
+                              <div className="flex flex-col gap-1 items-center">
+                                 <button onClick={() => movePartner(index, 'up')} className="p-1 hover:bg-gray-100 rounded text-gray-400 hover:text-kmmr-blue"><ChevronUp size={16}/></button>
+                                 <button onClick={() => movePartner(index, 'down')} className="p-1 hover:bg-gray-100 rounded text-gray-400 hover:text-kmmr-blue"><ChevronDown size={16}/></button>
                               </div>
-                              <div className="flex items-center gap-2">
-                                <button onClick={() => { setNewPartner(partner); setIsAddingPartner(true); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="text-kmmr-blue text-xs font-bold hover:underline flex items-center gap-1"><Edit2 size={14}/> Ред</button>
-                                <button onClick={() => deleteItem('partners', partner.id)} className="text-red-500 text-xs font-bold hover:bg-red-50 px-2 py-1 rounded"><Trash2 size={14}/></button>
+                              <div className="flex gap-1">
+                                 <button onClick={() => { setNewPartner(partner); setIsAddingPartner(true); window.scrollTo({top:0, behavior:'smooth'}); }} className="text-kmmr-blue hover:bg-blue-50 p-1 rounded"><Edit2 size={14}/></button>
+                                 <button onClick={() => deleteItem('partners', partner.id)} className="text-red-500 hover:bg-red-50 p-1 rounded"><Trash2 size={14}/></button>
                               </div>
                            </div>
+                           <div className="aspect-video bg-gray-50 rounded-lg overflow-hidden flex items-center justify-center p-2 mb-2" style={{ backgroundColor: partner.bgColor }}>
+                              <img src={partner.image} alt="" className="max-w-full max-h-full object-contain"/>
+                           </div>
+                           <h4 className="font-bold text-gray-800 text-sm truncate text-center">{partner.name}</h4>
                         </div>
                      ))}
                   </div>
